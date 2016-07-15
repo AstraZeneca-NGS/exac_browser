@@ -6,18 +6,8 @@ import traceback
 from utils import *
 import copy
 
-POPS = {
-    'AFR': 'African',
-    'AMR': 'Latino',
-    'EAS': 'East Asian',
-    'FIN': 'European (Finnish)',
-    'NFE': 'European (Non-Finnish)',
-    'SAS': 'South Asian',
-    'OTH': 'Other'
-}
 
-
-def get_base_coverage_from_file(base_coverage_file):
+def get_base_coverage_from_file(base_coverage_file, canonical_transcripts):
     """
     Read a base coverage file and return iter of dicts that look like:
     {
@@ -50,40 +40,47 @@ def get_base_coverage_from_file(base_coverage_file):
         yield d
 
 
-def get_variants_from_sites_vcf(sites_vcf):
+def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
     """
     Parse exac sites VCF file and return iter of variant dicts
     sites_vcf is a file (gzipped), not file path
     """
-    vep_field_names = None
+    ann_field_names = None
+    samples = []
+
     for line in sites_vcf:
         try:
             line = line.strip('\n')
-            if line.startswith('##INFO=<ID=CSQ'):
-                vep_field_names = line.split('Format: ')[-1].strip('">').split('|')
+            if line.startswith('##INFO=<ID=ANN'):
+                ann_field_names = line.split('Format: ')[-1].strip('">').split('|')
+                ann_field_names = [f.strip() for f in ann_field_names]
+                ann_field_names[0] = ann_field_names[0].split('\'')[1]
             if line.startswith('##INFO=<ID=DP_HIST'):
                 dp_mids = map(float, line.split('Mids: ')[-1].strip('">').split('|'))
             if line.startswith('##INFO=<ID=GQ_HIST'):
                 gq_mids = map(float, line.split('Mids: ')[-1].strip('">').split('|'))
+            if line.startswith('#CHROM'):
+                fs = line.split('\t')
+                samples = fs[fs.index('FORMAT') + 1:]
             if line.startswith('#'):
                 continue
 
             # If we get here, it's a variant line
-            if vep_field_names is None:
-                raise Exception("VEP_field_names is None. Make sure VCF header is present.")
+            if ann_field_names is None:
+                raise Exception("ANN_field_names is None. Make sure VCF header is present.")
             # This elegant parsing code below is copied from https://github.com/konradjk/loftee
             fields = line.split('\t')
             info_field = dict([(x.split('=', 1)) if '=' in x else (x, x) for x in re.split(';(?=\w)', fields[7])])
-            consequence_array = info_field['CSQ'].split(',') if 'CSQ' in info_field else []
-            annotations = [dict(zip(vep_field_names, x.split('|'))) for x in consequence_array if len(vep_field_names) == len(x.split('|'))]
-            coding_annotations = [ann for ann in annotations if ann['Feature'].startswith('ENST')]
+            annotation_array = info_field['ANN'].split(',') if 'ANN' in info_field else []
+            all_annotations = [dict(zip(ann_field_names, x.split('|'))) for x in annotation_array if len(ann_field_names) == len(x.split('|'))]
+            coding_annotations = [ann for ann in all_annotations if ann['Feature_ID'].startswith('NM')]
 
             alt_alleles = fields[4].split(',')
 
             # different variant for each alt allele
             for i, alt_allele in enumerate(alt_alleles):
 
-                vep_annotations = [ann for ann in coding_annotations if int(ann['ALLELE_NUM']) == i + 1]
+                annotations = [ann for ann in coding_annotations if (ann['Allele']) == alt_allele]
 
                 # Variant is just a dict
                 # Make a copy of the info_field dict - so all the original data remains
@@ -106,33 +103,56 @@ def get_variants_from_sites_vcf(sites_vcf):
                 ]
                 variant['site_quality'] = float(fields[5])
                 variant['filter'] = fields[6]
-                variant['vep_annotations'] = vep_annotations
+                variant['vep_annotations'] = [{k.replace('.', '_'): v for k, v in annotation.iteritems()} for annotation in annotations]
 
-                variant['allele_count'] = int(info_field['AC_Adj'].split(',')[i])
-                if not variant['allele_count'] and variant['filter'] == 'PASS': variant['filter'] = 'AC_Adj0' # Temporary filter
-                variant['allele_num'] = int(info_field['AN_Adj'])
+                variant['allele_freq'] = float(info_field['AF'])
+                variant['allele_count'] = int(info_field['AC'].split(',')[i])
+                variant['allele_num'] = int(info_field['AN'])
 
-                if variant['allele_num'] > 0:
-                    variant['allele_freq'] = variant['allele_count']/float(info_field['AN_Adj'])
-                else:
-                    variant['allele_freq'] = None
+                if 'AC_MALE' in info_field:
+                    variant['ac_male'] = info_field['AC_MALE']
+                if 'AC_FEMALE' in info_field:
+                    variant['ac_female'] = info_field['AC_FEMALE']
+                if 'AN_MALE' in info_field:
+                    variant['an_male'] = info_field['AN_MALE']
+                if 'AN_FEMALE' in info_field:
+                    variant['an_female'] = info_field['AN_FEMALE']
+                samples_data = fields[-len(samples):]
+                variant['sample_names'] = samples
+                variant['sample_data'] = []
+                for idx, sample in enumerate(samples):
+                    fs = samples_data[idx].split(':')
+                    if len(fs) < 6:
+                        variant['sample_data'].append('')
+                        continue
 
-                variant['pop_acs'] = dict([(POPS[x], int(info_field['AC_%s' % x].split(',')[i])) for x in POPS])
-                variant['pop_ans'] = dict([(POPS[x], int(info_field['AN_%s' % x])) for x in POPS])
-                variant['pop_homs'] = dict([(POPS[x], int(info_field['Hom_%s' % x].split(',')[i])) for x in POPS])
-                variant['ac_male'] = info_field['AC_MALE']
-                variant['ac_female'] = info_field['AC_FEMALE']
-                variant['an_male'] = info_field['AN_MALE']
-                variant['an_female'] = info_field['AN_FEMALE']
-                variant['hom_count'] = sum(variant['pop_homs'].values())
+                    freq, depth = fs[3], fs[5]
+                    if freq.replace('.', '', 1).isdigit():
+                        freq = str(float(freq) * 100) + '%'
+                    variant['sample_data'].append(freq + '\t' + depth)
+
                 if variant['chrom'] in ('X', 'Y'):
                     variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
                     variant['hemi_count'] = sum(variant['pop_hemis'].values())
-                variant['quality_metrics'] = dict([(x, info_field[x]) for x in METRICS if x in info_field])
+                variant['quality_metrics'] = dict([(x.replace('.', '_'), info_field[x]) for x in METRICS if x in info_field])
 
-                variant['genes'] = list({annotation['Gene'] for annotation in vep_annotations})
-                variant['transcripts'] = list({annotation['Feature'] for annotation in vep_annotations})
+                variant['genes'] = set()
+                variant['transcripts'] = set()
+                for vep_annotation, annotation in zip(variant['vep_annotations'], annotations):
+                    gene = annotation['Gene_Name']
+                    transcript = annotation['Feature_ID'].split('.')[0]
+                    if canonical_transcripts[gene] == transcript:
+                        vep_annotation['CANONICAL'] = 'YES'
+                    else:
+                        vep_annotation['CANONICAL'] = 'NO'
+                    if 'LoF' not in annotation:
+                        vep_annotation['LoF'] = ''
+                    variant['genes'].add(gene)
+                    variant['transcripts'].add(transcript)
+                    vep_annotation['Feature_ID'] = transcript
 
+                variant['genes'] = list(variant['genes'])
+                variant['transcripts'] = list(variant['transcripts'])
                 if 'DP_HIST' in info_field:
                     hists_all = [info_field['DP_HIST'].split(',')[0], info_field['DP_HIST'].split(',')[i+1]]
                     variant['genotype_depths'] = [zip(dp_mids, map(int, x.split('|'))) for x in hists_all]
@@ -198,104 +218,109 @@ def get_omim_associations(omim_file):
             yield None
 
 
-def get_genes_from_gencode_gtf(gtf_file):
+def get_genes_from_features(features_file):
     """
-    Parse gencode GTF file;
+    Parse features bed file;
     Returns iter of gene dicts
     """
-    for line in gtf_file:
+    for line in features_file:
         if line.startswith('#'):
             continue
         fields = line.strip('\n').split('\t')
+        feature_type = fields[6]
 
-        if fields[2] != 'gene':
+        if feature_type != 'Transcript':
             continue
 
-        chrom = fields[0][3:]
-        start = int(fields[3]) + 1  # bed files are 0-indexed
-        stop = int(fields[4]) + 1
-        info = dict(x.strip().split() for x in fields[8].split(';') if x != '')
-        info = {k: v.strip('"') for k, v in info.items()}
-        gene_id = info['gene_id'].split('.')[0]
+        chrom = fields[0]
+        if chrom not in CHROMOSOME_TO_CODE:
+            continue
+        start = int(fields[1]) + 1  # bed files are 0-indexed
+        stop = int(fields[2]) + 1
+        gene_id = fields[3]
+        strand = fields[5]
 
         gene = {
             'gene_id': gene_id,
-            'gene_name': info['gene_name'],
-            'gene_name_upper': info['gene_name'].upper(),
-            'chrom': chrom,
+            'gene_name': gene_id,
+            'gene_name_upper': gene_id.upper(),
+            'chrom': chrom[3:],
             'start': start,
             'stop': stop,
-            'strand': fields[6],
+            'strand': strand,
             'xstart': get_xpos(chrom, start),
             'xstop': get_xpos(chrom, stop),
         }
         yield gene
 
 
-def get_transcripts_from_gencode_gtf(gtf_file):
+def get_transcripts_from_features(features_file):
     """
-    Parse gencode GTF file;
+    Parse features bed file;
     Returns iter of transcript dicts
     """
-    for line in gtf_file:
+    for line in features_file:
         if line.startswith('#'):
             continue
         fields = line.strip('\n').split('\t')
+        feature_type = fields[6]
 
-        if fields[2] != 'transcript':
+        if feature_type != 'Transcript':
             continue
 
-        chrom = fields[0][3:]
-        start = int(fields[3]) + 1  # bed files are 0-indexed
-        stop = int(fields[4]) + 1
-        info = dict(x.strip().split() for x in fields[8].split(';') if x != '')
-        info = {k: v.strip('"') for k, v in info.items()}
-        transcript_id = info['transcript_id'].split('.')[0]
-        gene_id = info['gene_id'].split('.')[0]
+        chrom = fields[0]
+        if chrom not in CHROMOSOME_TO_CODE:
+            continue
+        start = int(fields[1]) + 1  # bed files are 0-indexed
+        stop = int(fields[2]) + 1
+        gene_id = fields[3]
+        strand = fields[5]
+        transcript_id = fields[8]
 
         gene = {
             'transcript_id': transcript_id,
             'gene_id': gene_id,
-            'chrom': chrom,
+            'chrom': chrom[3:],
             'start': start,
             'stop': stop,
-            'strand': fields[6],
+            'strand': strand,
             'xstart': get_xpos(chrom, start),
             'xstop': get_xpos(chrom, stop),
         }
         yield gene
 
 
-def get_exons_from_gencode_gtf(gtf_file):
+def get_exons_from_features(features_file):
     """
-    Parse gencode GTF file;
+    Parse features bed file;
     Returns iter of transcript dicts
     """
-    for line in gtf_file:
+    for line in features_file:
         if line.startswith('#'):
             continue
         fields = line.strip('\n').split('\t')
+        feature_type = fields[6]
 
-        if fields[2] not in ['exon', 'CDS', 'UTR']:
+        if feature_type not in ['Exon', 'CDS', 'UTR']:
             continue
 
-        chrom = fields[0][3:]
-        feature_type = fields[2]
-        start = int(fields[3]) + 1  # bed files are 0-indexed
-        stop = int(fields[4]) + 1
-        info = dict(x.strip().split() for x in fields[8].split(';') if x != '')
-        info = {k: v.strip('"') for k, v in info.items()}
-        transcript_id = info['transcript_id'].split('.')[0]
-        gene_id = info['gene_id'].split('.')[0]
+        chrom = fields[0]
+        if chrom not in CHROMOSOME_TO_CODE:
+            continue
+        start = int(fields[1]) + 1  # bed files are 0-indexed
+        stop = int(fields[2]) + 1
+        gene_id = fields[3]
+        strand = fields[5]
+        transcript_id = fields[8]
 
         exon = {
             'feature_type': feature_type,
             'transcript_id': transcript_id,
             'gene_id': gene_id,
-            'chrom': chrom,
+            'chrom': chrom[3:],
             'start': start,
             'stop': stop,
-            'strand': fields[6],
+            'strand': strand,
             'xstart': get_xpos(chrom, start),
             'xstop': get_xpos(chrom, stop),
         }
@@ -323,7 +348,7 @@ def get_dbnsfp_info(dbnsfp_file):
         yield gene_info
 
 
-def get_snp_from_dbsnp_file(dbsnp_file):
+def get_snp_from_dbsnp_file(dbsnp_file, canonical_transcripts):
     for line in dbsnp_file:
         fields = line.split('\t')
         if len(fields) < 3: continue

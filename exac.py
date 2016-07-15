@@ -41,7 +41,7 @@ Compress(app)
 app.config['COMPRESS_DEBUG'] = True
 cache = SimpleCache(default_timeout=60*60*24)
 
-EXAC_FILES_DIRECTORY = '../exac_data/'
+EXAC_FILES_DIRECTORY = '/Users/alla/Documents/exac_browser/exac_data/'
 REGION_LIMIT = 1E5
 EXON_PADDING = 50
 # Load default config and override config from an environment variable
@@ -52,11 +52,11 @@ app.config.update(dict(
     DEBUG=True,
     SECRET_KEY='development key',
     LOAD_DB_PARALLEL_PROCESSES = 4,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
-    SITES_VCFS=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'ExAC*.vcf.gz')),
-    GENCODE_GTF=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'gencode.gtf.gz'),
+    SITES_VCFS=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'vardict.*.vcf.gz')),
+    FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'all_features.hg19.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'omim_info.txt.gz'),
-    BASE_COVERAGE_FILES=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'coverage', 'Panel.*.coverage.txt.gz')),
+    BASE_COVERAGE_FILES=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'coverage', 'coverage.*.txt.gz')),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
@@ -81,7 +81,7 @@ def connect_db():
     return client[app.config['DB_NAME']]
 
 
-def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser):
+def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, canonical_transcripts=None):
     """
     Returns a generator of parsed record objects (as returned by record_parser) for the i'th out n subset of records
     across all the given tabix_file(s). The records are split by files and contigs within files, with 1/n of all contigs
@@ -105,7 +105,7 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser):
     for tabix_file, contig in tabix_file_contig_subset:
         header_iterator = tabix_file.header
         records_iterator = tabix_file.fetch(contig, 0, 10**9, multiple_iterators=True)
-        for parsed_record in record_parser(itertools.chain(header_iterator, records_iterator)):
+        for parsed_record in record_parser(itertools.chain(header_iterator, records_iterator), canonical_transcripts):
             counter += 1
             yield parsed_record
 
@@ -145,8 +145,8 @@ def load_base_coverage():
 
 
 def load_variants_file():
-    def load_variants(sites_file, i, n, db):
-        variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf)
+    def load_variants(sites_file, i, n, db, canonical_transcripts):
+        variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf, canonical_transcripts)
         try:
             db.variants.insert(variants_generator, w=0)
         except pymongo.errors.InvalidOperation:
@@ -169,11 +169,15 @@ def load_variants_file():
         raise IOError("No vcf file found")
     elif len(sites_vcfs) > 1:
         raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
+    canonical_transcripts = defaultdict()
+    with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE']) as canonical_transcript_file:
+        for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
+            canonical_transcripts[gene] = transcript
 
     procs = []
     num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
     for i in range(num_procs):
-        p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db))
+        p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
         p.start()
         procs.append(p)
     return procs
@@ -249,8 +253,8 @@ def load_gene_models():
 
     # grab genes from GTF
     start_time = time.time()
-    with gzip.open(app.config['GENCODE_GTF']) as gtf_file:
-        for gene in get_genes_from_gencode_gtf(gtf_file):
+    with gzip.open(app.config['FEATURES_FILE']) as features_file:
+        for gene in get_genes_from_features(features_file):
             gene_id = gene['gene_id']
             if gene_id in canonical_transcripts:
                 gene['canonical_transcript'] = canonical_transcripts[gene_id]
@@ -275,8 +279,8 @@ def load_gene_models():
 
     # and now transcripts
     start_time = time.time()
-    with gzip.open(app.config['GENCODE_GTF']) as gtf_file:
-        db.transcripts.insert((transcript for transcript in get_transcripts_from_gencode_gtf(gtf_file)), w=0)
+    with gzip.open(app.config['FEATURES_FILE']) as features_file:
+        db.transcripts.insert((transcript for transcript in get_transcripts_from_features(features_file)), w=0)
     print 'Done loading transcripts. Took %s seconds' % int(time.time() - start_time)
 
     start_time = time.time()
@@ -286,8 +290,8 @@ def load_gene_models():
 
     # Building up gene definitions
     start_time = time.time()
-    with gzip.open(app.config['GENCODE_GTF']) as gtf_file:
-        db.exons.insert((exon for exon in get_exons_from_gencode_gtf(gtf_file)), w=0)
+    with gzip.open(app.config['FEATURES_FILE']) as features_file:
+        db.exons.insert((exon for exon in get_exons_from_features(features_file)), w=0)
     print 'Done loading exons. Took %s seconds' % int(time.time() - start_time)
 
     start_time = time.time()
@@ -360,16 +364,16 @@ def load_db():
         print('Exiting...')
         sys.exit(1)
     all_procs = []
-    for load_function in [load_variants_file, load_dbsnp_file, load_base_coverage, load_gene_models, load_constraint_information]:
+    for load_function in [load_variants_file, load_dbsnp_file, load_base_coverage, load_gene_models]:
         procs = load_function()
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
 
     [p.join() for p in all_procs]
-    print('Done! Loading MNPs...')
-    load_mnps()
-    print('Done! Creating cache...')
-    create_cache()
+    # print('Done! Loading MNPs...')
+    # load_mnps()
+    # print('Done! Creating cache...')
+    # create_cache()
     print('Done!')
 
 
@@ -554,7 +558,7 @@ def variant_page(variant_str):
             variant['vep_annotations'] = order_vep_by_csq(variant['vep_annotations'])  # Adds major_consequence
             for annotation in variant['vep_annotations']:
                 annotation['HGVS'] = get_proper_hgvs(annotation)
-                consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene'], []).append(annotation)
+                consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene_Name'], []).append(annotation)
         base_coverage = lookups.get_coverage_for_bases(db, xpos, xpos + len(ref) - 1)
         any_covered = any([x['has_coverage'] for x in base_coverage])
         metrics = lookups.get_metrics(db, variant)

@@ -322,7 +322,7 @@ function add_line_to_quality_histogram(data, position, container, log) {
 
 function draw_region_coverage(raw_data, metric, ref) {
     region_chart_width = 500;
-    region_chart_margin = {top: 10, right: 50, bottom: 55, left: 50};
+    region_chart_margin = {top: 10, right: 50, bottom: 55, left: 55};
     if (raw_data.length > 1) {
         var data = raw_data;
         var chart_width = _.min([region_chart_width, data.length*30]);
@@ -543,7 +543,7 @@ function get_af_bounds(data) {
 
 total_width = $(window).width() < 768 ? $(window).width() : $(window).width() * 10 / 12;
 
-gene_chart_margin = {top: 10, right: 10, bottom: 5, left: 30};
+gene_chart_margin = {top: 10, right: 10, bottom: 5, left: 35};
 if ($(window).width() < 768) {
     gene_chart_margin.left = 10;
 }

@@ -123,20 +123,20 @@ def get_proper_hgvs(csq):
 
 
 def get_transcript_hgvs(csq):
-    return csq['HGVSc'].split(':')[-1]
+    return csq['HGVS_c'].split(':')[-1]
 
 
 def get_protein_hgvs(annotation):
     """
     Takes consequence dictionary, returns proper variant formatting for synonymous variants
     """
-    if '%3D' in annotation['HGVSp']: # "%3D" is "="
+    if '%3D' in annotation['HGVS_p']: # "%3D" is "="
         try:
             amino_acids = ''.join([protein_letters_1to3[x] for x in annotation['Amino_acids']])
             return "p." + amino_acids + annotation['Protein_position'] + amino_acids
         except Exception, e:
             print 'Could not create HGVS for: %s' % annotation
-    return annotation['HGVSp'].split(':')[-1]
+    return annotation['HGVS_p'].split(':')[-1]
 
 # Note that this is the current as of v81 with some included for backwards compatibility (VEP <= 75)
 csq_order = ["transcript_ablation",
@@ -186,7 +186,7 @@ assert all(csq == rev_csq_order_dict[csq_order_dict[csq]] for csq in csq_order)
 
 
 def remove_extraneous_vep_annotations(annotation_list):
-    return [ann for ann in annotation_list if worst_csq_index(ann['Consequence'].split('&')) <= csq_order_dict['intron_variant']]
+    return [ann for ann in annotation_list if worst_csq_index(ann['Annotation'].split('&')) <= csq_order_dict['intron_variant']]
 
 
 def worst_csq_index(csq_list):
@@ -221,26 +221,26 @@ def order_vep_by_csq(annotation_list):
     Returns them ordered from most deleterious to least.
     """
     for ann in annotation_list:
-        ann['major_consequence'] = worst_csq_from_csq(ann['Consequence'])
+        ann['major_consequence'] = worst_csq_from_csq(ann['Annotation'])
     return sorted(annotation_list, key=(lambda ann:csq_order_dict[ann['major_consequence']]))
 
 
 def worst_csq_with_vep(annotation_list):
     """
-    Takes list of VEP annotations [{'Consequence': 'frameshift', Feature: 'ENST'}, ...]
-    Returns most severe annotation (as full VEP annotation [{'Consequence': 'frameshift', Feature: 'ENST'}])
+    Takes list of VEP annotations [{'Annotation': 'frameshift', Feature: 'ENST'}, ...]
+    Returns most severe annotation (as full VEP annotation [{'Annotation': 'frameshift', Feature: 'ENST'}])
     Also tacks on "major_consequence" for that annotation (i.e. worst_csq_from_csq)
     """
     if len(annotation_list) == 0:
         return None
     worst = max(annotation_list, key=annotation_severity)
-    worst['major_consequence'] = worst_csq_from_csq(worst['Consequence'])
+    worst['major_consequence'] = worst_csq_from_csq(worst['Annotation'])
     return worst
 
 
 def annotation_severity(annotation):
     "Bigger is more important."
-    rv = -csq_order_dict[worst_csq_from_csq(annotation['Consequence'])]
+    rv = -csq_order_dict[worst_csq_from_csq(annotation['Annotation'])]
     if annotation['CANONICAL'] == 'YES':
         rv += 0.1
     return rv
