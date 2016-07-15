@@ -22,7 +22,7 @@ function region_chart(data, variant_data) {
         .domain([d3.min(data, function(d) { return d.pos; }), d3.max(data, function(d) { return d.pos; })])
         .range([0, gene_chart_width]);
 
-    var max_cov = (metric == 'mean' || metric == 'median') ? 100 : 1;
+    var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
     var y = d3.scale.linear()
         .domain([0, max_cov])
         .range([gene_chart_height, 0]);
@@ -179,7 +179,7 @@ function region_chart(data, variant_data) {
 }
 
 function change_region_chart_metric(data, metric, container) {
-    var max_cov = (metric == 'mean' || metric == 'median') ? 100 : 1;
+    var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
 
     var y = d3.scale.linear()
         .domain([0, max_cov])

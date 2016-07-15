@@ -49,7 +49,7 @@ function gene_chart(data, new_data, variant_data, _transcript) {
         .domain([0, coding_coordinate_params.size])
         .range([0, chart_width]);
 
-    var max_cov = (metric == 'mean' || metric == 'median') ? 100 : 1;
+    var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
     var y = d3.scale.linear()
         .domain([0, max_cov])
         .range([gene_chart_height, 0]);
@@ -285,7 +285,7 @@ function variant_colors(d) {
 
 function change_coverage_chart(data, new_data, variant_data, _transcript, scale_type, metric, skip_utrs, container) {
     var coords = skip_utrs ? 'pos_coding_noutr' : 'pos_coding';
-    var max_cov = (metric == 'mean' || metric == 'median') ? 100 : 1;
+    var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
     var coding_coordinate_params = get_coding_coordinate_params(_transcript, skip_utrs);
     var chart_width;
     if (scale_type == 'overview') {
