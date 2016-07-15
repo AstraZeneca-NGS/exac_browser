@@ -132,7 +132,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                     variant['sample_data'].append(freq + '\t' + depth)
 
                 if variant['chrom'] in ('X', 'Y'):
-                    variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
+                    # variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
                     variant['hemi_count'] = sum(variant['pop_hemis'].values())
                 variant['quality_metrics'] = dict([(x.replace('.', '_'), info_field[x]) for x in METRICS if x in info_field])
 

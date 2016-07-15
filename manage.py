@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-
+import sys
 from flask.ext.script import Manager
 from exac import app
 import exac
@@ -18,20 +18,20 @@ def load_db():
 
 
 @manager.command
-def load_base_coverage():
-    exac.load_base_coverage()
+def load_base_coverage(project_name):
+    exac.load_base_coverage(project_name)
 
 
 @manager.command
-def load_variants_file():
-    exac.load_variants_file()
+def load_variants_file(project_name):
+    exac.load_variants_file(project_name)
 
 
 @manager.command
-def reload_variants():
-    exac.load_variants_file()
-    exac.load_mnps()
-    exac.precalculate_metrics()
+def reload_variants(project_name):
+    exac.load_variants_file(project_name)
+    # exac.load_mnps()
+    exac.precalculate_metrics(project_name)
 
 
 @manager.command
@@ -60,8 +60,8 @@ def create_cache():
 
 
 @manager.command
-def precalculate_metrics():
-    exac.precalculate_metrics()
+def precalculate_metrics(project_name=None):
+    exac.precalculate_metrics(project_name)
 
 if __name__ == "__main__":
     manager.run()

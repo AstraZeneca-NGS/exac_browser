@@ -202,7 +202,7 @@ function gene_chart(data, new_data, variant_data, _transcript) {
         .enter()
         .append("a")
         .attr('class', 'track_variant_link')
-        .attr("xlink:href", function(d, i) { return "/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
+        .attr("xlink:href", function(d, i) { return "/project/{{ project_name }}/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
         .attr("data-toggle", "tooltip")
         .attr('filter_status', function(d) {
             return d.filter;

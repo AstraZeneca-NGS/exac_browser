@@ -57,7 +57,29 @@
                 }
             );
             $('.awesomebar').bind('typeahead:selected', function(obj, datum) {
-                window.location.href = '/awesome?query=' + datum.value;
+                window.location.href = '/project/{{ project_name }}/awesome?query=' + datum.value;
+            });
+
+            var projects = new Bloodhound({
+              datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
+              queryTokenizer: Bloodhound.tokenizers.whitespace,
+              remote: '/autocomplete_project/%QUERY'
+            });
+
+            projects.initialize();
+
+            $('.awesomeprojectbar').typeahead(
+                {
+                    autoselect: true,
+                },
+                {
+                    name: 'projects',
+                    displayKey: 'value',
+                    source: projects.ttAdapter(),
+                }
+            );
+            $('.awesomeprojectbar').bind('typeahead:selected', function(obj, datum) {
+                window.location.href = '/awesomeproject?query=' + datum.value;
             });
         });
     </script>
@@ -73,7 +95,14 @@
                 <span class="icon-bar"></span>
             </button>
             <a class="navbar-brand" href="/" style="color: white; font-weight: bold; float: left; font-size: 15px;">ExAC Browser Beta</a>
-            <div class="col-xs-5" id="navbar_form_container">
+            <div class="col-xs-5" id="projectbar_form_container">
+                <form action="/awesome_project" class="navbar-form" role="search">
+                    <div class="form-group" id="projectbar-awesomebar">
+                        <input type="submit" style="display: none;"/>
+                        <input id="projectbar-searchbox-input" name="query" class="form-control awesomeprojectbar" type="text" placeholder="Project:{{ project_name }}"/>
+                        <input type="submit" style="position: absolute; left: -9999px"/>
+                    </div>
+                </form>
                 <form action="/awesome" class="navbar-form" role="search">
                     <div class="form-group" id="navbar-awesomebar">
                         <input type="submit" style="display: none;"/>

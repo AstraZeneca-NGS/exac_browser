@@ -3,6 +3,8 @@
 import itertools
 import json
 import os
+from os.path import basename
+
 import pymongo
 import pysam
 import gzip
@@ -44,6 +46,7 @@ cache = SimpleCache(default_timeout=60*60*24)
 EXAC_FILES_DIRECTORY = '/Users/alla/Documents/exac_browser/exac_data/'
 REGION_LIMIT = 1E5
 EXON_PADDING = 50
+
 # Load default config and override config from an environment variable
 app.config.update(dict(
     DB_HOST='localhost',
@@ -52,11 +55,11 @@ app.config.update(dict(
     DEBUG=True,
     SECRET_KEY='development key',
     LOAD_DB_PARALLEL_PROCESSES = 4,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
-    SITES_VCFS=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'vardict.*.vcf.gz')),
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'all_features.hg19.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'omim_info.txt.gz'),
-    BASE_COVERAGE_FILES=glob.glob(os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'coverage', 'coverage.*.txt.gz')),
+    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'vardict.%s.vcf.gz'),
+    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'coverage', '%s', 'coverage.*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
@@ -117,7 +120,7 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
     print("Finished loading subset %(subset_i)s from  %(short_filenames)s (%(counter)s records)" % locals())
 
 
-def load_base_coverage():
+def load_base_coverage(project_name=None):
     def load_coverage(coverage_files, i, n, db):
         coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file)
         try:
@@ -125,26 +128,39 @@ def load_base_coverage():
         except pymongo.errors.InvalidOperation:
             pass  # handle error when coverage_generator is empty
 
-    db = get_db()
-    db.base_coverage.drop()
-    print("Dropped db.base_coverage")
-    # load coverage first; variant info will depend on coverage
-    db.base_coverage.ensure_index('xpos')
-
+    full_db = get_db()
+    if project_name:
+        project_names = [project_name]
+    else:
+        project_names = get_project_names(full_db)
     procs = []
-    coverage_files = app.config['BASE_COVERAGE_FILES']
-    num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    random.shuffle(app.config['BASE_COVERAGE_FILES'])
-    for i in range(num_procs):
-        p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db))
-        p.start()
-        procs.append(p)
+    for project_name in project_names:
+        db = full_db[project_name]
+        db.base_coverage.drop()
+        print("Dropped db.base_coverage for " + project_name)
+        # load coverage first; variant info will depend on coverage
+        db.base_coverage.ensure_index('xpos')
+
+        coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % project_name)
+        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+        # random.shuffle(app.config['BASE_COVERAGE_FILES'])
+        max_procs = max(1, num_procs / len(project_names))
+        for i in range(max_procs):
+            p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db))
+            p.start()
+            procs.append(p)
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
 
 
-def load_variants_file():
+def get_project_names(full_db):
+    projects = full_db.projects.find()
+    project_names = [project['name'] for project in projects]
+    return project_names
+
+
+def load_variants_file(project_name=None):
     def load_variants(sites_file, i, n, db, canonical_transcripts):
         variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf, canonical_transcripts)
         try:
@@ -152,34 +168,45 @@ def load_variants_file():
         except pymongo.errors.InvalidOperation:
             pass  # handle error when variant_generator is empty
 
-    db = get_db()
-    db.variants.drop()
-    print("Dropped db.variants")
-
-    # grab variants from sites VCF
-    db.variants.ensure_index('xpos')
-    db.variants.ensure_index('xstart')
-    db.variants.ensure_index('xstop')
-    db.variants.ensure_index('rsid')
-    db.variants.ensure_index('genes')
-    db.variants.ensure_index('transcripts')
-
-    sites_vcfs = app.config['SITES_VCFS']
-    if len(sites_vcfs) == 0:
-        raise IOError("No vcf file found")
-    elif len(sites_vcfs) > 1:
-        raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
-    canonical_transcripts = defaultdict()
-    with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE']) as canonical_transcript_file:
-        for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
-            canonical_transcripts[gene] = transcript
-
+    full_db = get_db()
+    if project_name:
+        project_names = [project_name]
+    else:
+        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % '*')
+        project_names = [basename(vcf).split('.')[1] for vcf in sites_vcfs]
+        full_db.projects.drop()
+        full_db.projects.insert({'name': project_name} for project_name in project_names)
     procs = []
-    num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    for i in range(num_procs):
-        p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
-        p.start()
-        procs.append(p)
+    for project_name in project_names:
+        db = full_db[project_name]
+        db.variants.drop()
+        print("Dropped db.variants for " + project_name)
+
+        # grab variants from sites VCF
+        db.variants.ensure_index('xpos')
+        db.variants.ensure_index('xstart')
+        db.variants.ensure_index('xstop')
+        db.variants.ensure_index('rsid')
+        db.variants.ensure_index('genes')
+        db.variants.ensure_index('transcripts')
+
+        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % project_name)
+        if len(sites_vcfs) == 0:
+            raise IOError("No vcf file found")
+        elif len(sites_vcfs) > 1:
+            raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
+
+        canonical_transcripts = defaultdict()
+        with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE']) as canonical_transcript_file:
+            for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
+                canonical_transcripts[gene] = transcript
+
+        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+        max_procs = max(1, num_procs / len(project_names))
+        for i in range(max_procs):
+            p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
+            p.start()
+            procs.append(p)
     return procs
 
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
@@ -364,7 +391,7 @@ def load_db():
         print('Exiting...')
         sys.exit(1)
     all_procs = []
-    for load_function in [load_variants_file, load_dbsnp_file, load_base_coverage, load_gene_models]:
+    for load_function in [load_variants_file, load_base_coverage, load_gene_models]:
         procs = load_function()
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -372,9 +399,16 @@ def load_db():
     [p.join() for p in all_procs]
     # print('Done! Loading MNPs...')
     # load_mnps()
-    # print('Done! Creating cache...')
-    # create_cache()
+    print('Done! Creating cache...')
+    create_cache()
     print('Done!')
+
+
+def save_autocomplete_data(autocomplete_strings, output_fpath):
+    f = open(os.path.join(os.path.dirname(__file__), output_fpath), 'w')
+    for s in sorted(autocomplete_strings):
+        f.write(s+'\n')
+    f.close()
 
 
 def create_cache():
@@ -385,15 +419,17 @@ def create_cache():
     """
     # create autocomplete_entries.txt
     autocomplete_strings = []
-    for gene in get_db().genes.find():
+    db = get_db()
+    for gene in db.genes.find():
         autocomplete_strings.append(gene['gene_name'])
         if 'other_names' in gene:
             autocomplete_strings.extend(gene['other_names'])
-    f = open(os.path.join(os.path.dirname(__file__), 'autocomplete_strings.txt'), 'w')
-    for s in sorted(autocomplete_strings):
-        f.write(s+'\n')
-    f.close()
 
+    save_autocomplete_data(set(autocomplete_strings), 'autocomplete_strings.txt')
+    autocomplete_strings = get_project_names(db)
+    save_autocomplete_data(autocomplete_strings, 'autocomplete_projects.txt')
+
+    '''
     # create static gene pages for genes in
     if not os.path.exists(GENE_CACHE_DIR):
         os.makedirs(GENE_CACHE_DIR)
@@ -407,69 +443,75 @@ def create_cache():
             continue
         f = open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id)), 'w')
         f.write(page_content)
-        f.close()
+        f.close()'''
 
 
-def precalculate_metrics():
+def precalculate_metrics(project_name=None):
     import numpy
-    db = get_db()
-    print 'Reading %s variants...' % db.variants.count()
-    metrics = defaultdict(list)
-    binned_metrics = defaultdict(list)
-    progress = 0
-    start_time = time.time()
-    for variant in db.variants.find(fields=['quality_metrics', 'site_quality', 'allele_num', 'allele_count']):
-        for metric, value in variant['quality_metrics'].iteritems():
-            metrics[metric].append(float(value))
-        qual = float(variant['site_quality'])
-        metrics['site_quality'].append(qual)
-        if variant['allele_num'] == 0: continue
-        if variant['allele_count'] == 1:
-            binned_metrics['singleton'].append(qual)
-        elif variant['allele_count'] == 2:
-            binned_metrics['doubleton'].append(qual)
-        else:
-            for af in AF_BUCKETS:
-                if float(variant['allele_count'])/variant['allele_num'] < af:
-                    binned_metrics[af].append(qual)
-                    break
-        progress += 1
-        if not progress % 100000:
-            print 'Read %s variants. Took %s seconds' % (progress, int(time.time() - start_time))
-    print 'Done reading variants. Dropping metrics database... '
-    db.metrics.drop()
-    print 'Dropped metrics database. Calculating metrics...'
-    for metric in metrics:
-        bin_range = None
-        data = map(numpy.log, metrics[metric]) if metric == 'DP' else metrics[metric]
-        if metric == 'FS':
-            bin_range = (0, 20)
-        elif metric == 'VQSLOD':
-            bin_range = (-20, 20)
-        elif metric == 'InbreedingCoeff':
-            bin_range = (0, 1)
-        if bin_range is not None:
-            data = [x if (x > bin_range[0]) else bin_range[0] for x in data]
-            data = [x if (x < bin_range[1]) else bin_range[1] for x in data]
-        hist = numpy.histogram(data, bins=40, range=bin_range)
-        edges = hist[1]
-        # mids = [(edges[i]+edges[i+1])/2 for i in range(len(edges)-1)]
-        lefts = [edges[i] for i in range(len(edges)-1)]
-        db.metrics.insert({
-            'metric': metric,
-            'mids': lefts,
-            'hist': list(hist[0])
-        })
-    for metric in binned_metrics:
-        hist = numpy.histogram(map(numpy.log, binned_metrics[metric]), bins=40)
-        edges = hist[1]
-        mids = [(edges[i]+edges[i+1])/2 for i in range(len(edges)-1)]
-        db.metrics.insert({
-            'metric': 'binned_%s' % metric,
-            'mids': mids,
-            'hist': list(hist[0])
-        })
-    db.metrics.ensure_index('metric')
+    full_db = get_db()
+    if project_name:
+        project_names = [project_name]
+    else:
+        project_names = get_project_names(full_db)
+    for project_name in project_names:
+        db = full_db[project_name]
+        print 'Reading %s variants for %s...' % (db.variants.count(), project_name)
+        metrics = defaultdict(list)
+        binned_metrics = defaultdict(list)
+        progress = 0
+        start_time = time.time()
+        for variant in db.variants.find(fields=['quality_metrics', 'site_quality', 'allele_num', 'allele_count']):
+            for metric, value in variant['quality_metrics'].iteritems():
+                metrics[metric].append(float(value))
+            qual = float(variant['site_quality'])
+            metrics['site_quality'].append(qual)
+            if variant['allele_num'] == 0: continue
+            if variant['allele_count'] == 1:
+                binned_metrics['singleton'].append(qual)
+            elif variant['allele_count'] == 2:
+                binned_metrics['doubleton'].append(qual)
+            else:
+                for af in AF_BUCKETS:
+                    if float(variant['allele_count'])/variant['allele_num'] < af:
+                        binned_metrics[af].append(qual)
+                        break
+            progress += 1
+            if not progress % 100000:
+                print 'Read %s variants. Took %s seconds' % (progress, int(time.time() - start_time))
+        print 'Done reading variants. Dropping metrics database... '
+        db.metrics.drop()
+        print 'Dropped metrics database. Calculating metrics...'
+        for metric in metrics:
+            bin_range = None
+            data = map(numpy.log, metrics[metric]) if metric == 'DP' else metrics[metric]
+            if metric == 'FS':
+                bin_range = (0, 20)
+            elif metric == 'VQSLOD':
+                bin_range = (-20, 20)
+            elif metric == 'InbreedingCoeff':
+                bin_range = (0, 1)
+            if bin_range is not None:
+                data = [x if (x > bin_range[0]) else bin_range[0] for x in data]
+                data = [x if (x < bin_range[1]) else bin_range[1] for x in data]
+            hist = numpy.histogram(data, bins=40, range=bin_range)
+            edges = hist[1]
+            # mids = [(edges[i]+edges[i+1])/2 for i in range(len(edges)-1)]
+            lefts = [edges[i] for i in range(len(edges)-1)]
+            db.metrics.insert({
+                'metric': metric,
+                'mids': lefts,
+                'hist': list(hist[0])
+            })
+        for metric in binned_metrics:
+            hist = numpy.histogram(map(numpy.log, binned_metrics[metric]), bins=40)
+            edges = hist[1]
+            mids = [(edges[i]+edges[i+1])/2 for i in range(len(edges)-1)]
+            db.metrics.insert({
+                'metric': 'binned_%s' % metric,
+                'mids': mids,
+                'hist': list(hist[0])
+            })
+        db.metrics.ensure_index('metric')
     print 'Done pre-calculating metrics!'
 
 
@@ -500,48 +542,74 @@ def homepage():
     return t
 
 
+@app.route('/project/<project_name>/')
+def project_page(project_name):
+    t = render_template(
+        'project_page.html',
+        project_name=project_name
+    )
+    return t
+
+
 @app.route('/autocomplete/<query>')
 def awesome_autocomplete(query):
     if not hasattr(g, 'autocomplete_strings'):
         g.autocomplete_strings = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), 'autocomplete_strings.txt'))]
-    suggestions = lookups.get_awesomebar_suggestions(g, query)
+    suggestions = lookups.get_awesomebar_suggestions(g.autocomplete_strings, query)
     return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
 
 
-@app.route('/awesome')
-def awesome():
+@app.route('/autocomplete_project/<query>')
+def awesome_project_autocomplete(query):
+    if not hasattr(g, 'autocomplete_projects'):
+        g.autocomplete_projects = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), 'autocomplete_projects.txt'))]
+    suggestions = lookups.get_awesomebar_suggestions(g.autocomplete_projects, query)
+    return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
+
+
+@app.route('/project/<project_name>/awesome')
+def awesome(project_name):
     db = get_db()
     query = request.args.get('query')
     datatype, identifier = lookups.get_awesomebar_result(db, query)
 
     print "Searched for %s: %s" % (datatype, identifier)
     if datatype == 'gene':
-        return redirect('/gene/{}'.format(identifier))
+        return redirect('/project/{}/gene/{}'.format(project_name, identifier))
     elif datatype == 'transcript':
-        return redirect('/transcript/{}'.format(identifier))
+        return redirect('/project/{}/transcript/{}'.format(project_name, identifier))
     elif datatype == 'variant':
-        return redirect('/variant/{}'.format(identifier))
+        return redirect('/project/{}/variant/{}'.format(project_name, identifier))
     elif datatype == 'region':
-        return redirect('/region/{}'.format(identifier))
+        return redirect('/project/{}/region/{}'.format(project_name, identifier))
     elif datatype == 'dbsnp_variant_set':
-        return redirect('/dbsnp/{}'.format(identifier))
+        return redirect('/project/{}/dbsnp/{}'.format(project_name, identifier))
     elif datatype == 'error':
-        return redirect('/error/{}'.format(identifier))
+        return redirect('/project/{}/error/{}'.format(project_name, identifier))
     elif datatype == 'not_found':
-        return redirect('/not_found/{}'.format(identifier))
+        return redirect('/project/{}/not_found/{}'.format(project_name, identifier))
     else:
         raise Exception
 
+@app.route('/awesomeproject')
+def awesome_project():
+    db = get_db()
+    query = request.args.get('query')
+    project_name = lookups.get_project_by_project_name(db, query)
+    if project_name:
+        return redirect('/project/{}'.format(project_name))
 
-@app.route('/variant/<variant_str>')
-def variant_page(variant_str):
+    return redirect('/not_found/{}'.format(query))
+
+@app.route('/project/<project_name>/variant/<variant_str>')
+def variant_page(project_name, variant_str):
     db = get_db()
     try:
         chrom, pos, ref, alt = variant_str.split('-')
         pos = int(pos)
         # pos, ref, alt = get_minimal_representation(pos, ref, alt)
         xpos = get_xpos(chrom, pos)
-        variant = lookups.get_variant(db, xpos, ref, alt)
+        variant = lookups.get_variant(db, project_name, xpos, ref, alt)
 
         if variant is None:
             variant = {
@@ -559,9 +627,9 @@ def variant_page(variant_str):
             for annotation in variant['vep_annotations']:
                 annotation['HGVS'] = get_proper_hgvs(annotation)
                 consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene_Name'], []).append(annotation)
-        base_coverage = lookups.get_coverage_for_bases(db, xpos, xpos + len(ref) - 1)
+        base_coverage = lookups.get_coverage_for_bases(db, project_name, xpos, xpos + len(ref) - 1)
         any_covered = any([x['has_coverage'] for x in base_coverage])
-        metrics = lookups.get_metrics(db, variant)
+        metrics = lookups.get_metrics(db, project_name, variant)
 
         # check the appropriate sqlite db to get the *expected* number of
         # available bams and *actual* number of available bams for this variant
@@ -604,6 +672,7 @@ def variant_page(variant_str):
         print 'Rendering variant: %s' % variant_str
         return render_template(
             'variant.html',
+            project_name=project_name,
             variant=variant,
             base_coverage=base_coverage,
             consequences=consequences,
@@ -616,15 +685,15 @@ def variant_page(variant_str):
         abort(404)
 
 
-@app.route('/gene/<gene_id>')
-def gene_page(gene_id):
+@app.route('/project/<project_name>/gene/<gene_id>')
+def gene_page(project_name, gene_id):
     if gene_id in GENES_TO_CACHE:
         return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
     else:
-        return get_gene_page_content(gene_id)
+        return get_gene_page_content(project_name, gene_id)
 
 
-def get_gene_page_content(gene_id):
+def get_gene_page_content(project_name, gene_id):
     db = get_db()
     try:
         gene = lookups.get_gene(db, gene_id)
@@ -634,19 +703,20 @@ def get_gene_page_content(gene_id):
         t = cache.get(cache_key)
         print 'Rendering %sgene: %s' % ('' if t is None else 'cached ', gene_id)
         if t is None:
-            variants_in_gene = lookups.get_variants_in_gene(db, gene_id)
+            variants_in_gene = lookups.get_variants_in_gene(db, project_name, gene_id)
             transcripts_in_gene = lookups.get_transcripts_in_gene(db, gene_id)
 
             # Get some canonical transcript and corresponding info
             transcript_id = gene['canonical_transcript']
             transcript = lookups.get_transcript(db, transcript_id)
-            variants_in_transcript = lookups.get_variants_in_transcript(db, transcript_id)
-            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, transcript_id)
+            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
             add_transcript_coordinate_to_variants(db, variants_in_transcript, transcript_id)
             constraint_info = lookups.get_constraint_for_transcript(db, transcript_id)
 
             t = render_template(
                 'gene.html',
+                project_name=project_name,
                 gene=gene,
                 transcript=transcript,
                 variants_in_gene=variants_in_gene,
@@ -663,8 +733,8 @@ def get_gene_page_content(gene_id):
         abort(404)
 
 
-@app.route('/transcript/<transcript_id>')
-def transcript_page(transcript_id):
+@app.route('/project/<project_name>/transcript/<transcript_id>')
+def transcript_page(project_name, transcript_id):
     db = get_db()
     try:
         transcript = lookups.get_transcript(db, transcript_id)
@@ -676,14 +746,15 @@ def transcript_page(transcript_id):
 
             gene = lookups.get_gene(db, transcript['gene_id'])
             gene['transcripts'] = lookups.get_transcripts_in_gene(db, transcript['gene_id'])
-            variants_in_transcript = lookups.get_variants_in_transcript(db, transcript_id)
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, transcript_id)
 
-            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
+            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
 
             add_transcript_coordinate_to_variants(db, variants_in_transcript, transcript_id)
 
             t = render_template(
                 'transcript.html',
+                project_name=project_name,
                 transcript=transcript,
                 transcript_json=json.dumps(transcript),
                 variants_in_transcript=variants_in_transcript,
@@ -701,8 +772,8 @@ def transcript_page(transcript_id):
         abort(404)
 
 
-@app.route('/region/<region_id>')
-def region_page(region_id):
+@app.route('/project/<project_name>/region/<region_id>')
+def region_page(project_name, region_id):
     db = get_db()
     try:
         region = region_id.split('-')
@@ -720,6 +791,7 @@ def region_page(region_id):
             if start is None or stop - start > REGION_LIMIT or stop < start:
                 return render_template(
                     'region.html',
+                    project_name=project_name,
                     genes_in_region=None,
                     variants_in_region=None,
                     chrom=chrom,
@@ -732,12 +804,13 @@ def region_page(region_id):
                 start -= 20
                 stop += 20
             genes_in_region = lookups.get_genes_in_region(db, chrom, start, stop)
-            variants_in_region = lookups.get_variants_in_region(db, chrom, start, stop)
+            variants_in_region = lookups.get_variants_in_region(db, project_name, chrom, start, stop)
             xstart = get_xpos(chrom, start)
             xstop = get_xpos(chrom, stop)
-            coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop)
+            coverage_array = lookups.get_coverage_for_bases(db, project_name, xstart, xstop)
             t = render_template(
                 'region.html',
+                project_name=project_name,
                 genes_in_region=genes_in_region,
                 variants_in_region=variants_in_region,
                 chrom=chrom,

@@ -146,9 +146,9 @@
                         {% else %}
                             <h5><span class="label label-warning">Warning!</span>
                         {% endif %}
-                        This variant is found in phase with <a href="/variant/{{ mnp.site2 }}">{{ mnp.site2 }}</a>
+                        This variant is found in phase with <a href="/project/{{ project_name }}/variant/{{ mnp.site2 }}">{{ mnp.site2 }}</a>
                         {% if mnp.site3 %}
-                            and <a href="/variant/{{ mnp.site3 }}">{{ mnp.site3 }}</a>
+                            and <a href="/project/{{ project_name }}/variant/{{ mnp.site3 }}">{{ mnp.site3 }}</a>
                         {% endif %}
                         in {{ mnp.number_samples }} individual{% if mnp.number_samples > 1 %}s{% endif %}{% if mnp.category != 'UNCHANGED' %}, altering its functional interpretation</h5>{% endif %}.
                     {% endfor %}
@@ -161,7 +161,7 @@
                     {% for allele in variant.orig_alt_alleles %}
                         {% if allele != variant.variant_id %}
                             <li>
-                                <a href="/variant/{{ allele }}">{{ allele }}</a>
+                                <a href="/project/{{ project_name }}/variant/{{ allele }}">{{ allele }}</a>
                             </li>
                         {% endif %}
                     {% endfor %}

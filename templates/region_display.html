@@ -119,7 +119,7 @@ function region_chart(data, variant_data) {
         .enter()
         .append("a")
         .attr('class', 'track_variant_link')
-        .attr("xlink:href", function(d, i) { return "/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
+        .attr("xlink:href", function(d, i) { return "/project/{{ project_name }}/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
         .attr("data-toggle", "tooltip")
         .attr('filter_status', function(d) {
             return d.filter;

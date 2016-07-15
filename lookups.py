@@ -26,12 +26,12 @@ def get_transcript(db, transcript_id):
     return transcript
 
 
-def get_raw_variant(db, xpos, ref, alt, get_id=False):
-    return db.variants.find_one({'xpos': xpos, 'ref': ref, 'alt': alt}, fields={'_id': get_id})
+def get_raw_variant(db, project_name, xpos, ref, alt, get_id=False):
+    return db[project_name].variants.find_one({'xpos': xpos, 'ref': ref, 'alt': alt}, fields={'_id': get_id})
 
 
-def get_variant(db, xpos, ref, alt):
-    variant = get_raw_variant(db, xpos, ref, alt, False)
+def get_variant(db, project_name, xpos, ref, alt):
+    variant = get_raw_variant(db, project_name, xpos, ref, alt, False)
     if variant is None or 'rsid' not in variant:
         return variant
     if variant['rsid'] == '.' or variant['rsid'] is None:
@@ -39,6 +39,11 @@ def get_variant(db, xpos, ref, alt):
         if rsid:
             variant['rsid'] = 'rs%s' % rsid['rsid']
     return variant
+
+
+def get_project_by_project_name(db, project_name):
+    projects = list(db.project_names.find({'name': project_name}))
+    return projects[0]['name']
 
 
 def get_variants_by_rsid(db, rsid):
@@ -69,7 +74,7 @@ def get_variants_from_dbsnp(db, rsid):
     return []
 
 
-def get_coverage_for_bases(db, xstart, xstop=None):
+def get_coverage_for_bases(db, project_name, xstart, xstop=None):
     """
     Get the coverage for the list of bases given by xstart->xstop, inclusive
     Returns list of coverage dicts
@@ -78,7 +83,7 @@ def get_coverage_for_bases(db, xstart, xstop=None):
     if xstop is None:
         xstop = xstart
     coverages = {
-        doc['xpos']: doc for doc in db.base_coverage.find(
+        doc['xpos']: doc for doc in db[project_name].base_coverage.find(
             {'xpos': {'$gte': xstart, '$lte': xstop}},
             fields={'_id': False}
         )
@@ -95,7 +100,7 @@ def get_coverage_for_bases(db, xstart, xstop=None):
     return ret
 
 
-def get_coverage_for_transcript(db, xstart, xstop=None):
+def get_coverage_for_transcript(db, project_name, xstart, xstop=None):
     """
 
     :param db:
@@ -104,7 +109,7 @@ def get_coverage_for_transcript(db, xstart, xstop=None):
     :param xstop:
     :return:
     """
-    coverage_array = get_coverage_for_bases(db, xstart, xstop)
+    coverage_array = get_coverage_for_bases(db, project_name, xstart, xstop)
     # only return coverages that have coverage (if that makes any sense?)
     # return coverage_array
     covered = [c for c in coverage_array if c['has_coverage']]
@@ -117,14 +122,14 @@ def get_constraint_for_transcript(db, transcript):
     return db.constraint.find_one({'transcript': transcript}, fields={'_id': False})
 
 
-def get_awesomebar_suggestions(g, query):
+def get_awesomebar_suggestions(autocomplete_strings, query):
     """
     This generates autocomplete suggestions when user
     query is the string that user types
     If it is the prefix for a gene, return list of gene names
     """
     regex = re.compile('^' + re.escape(query), re.IGNORECASE)
-    results = (r for r in g.autocomplete_strings if regex.match(r))
+    results = (r for r in autocomplete_strings if regex.match(r))
     results = itertools.islice(results, 0, 20)
     return list(results)
 
@@ -232,14 +237,14 @@ def get_genes_in_region(db, chrom, start, stop):
     return list(genes)
 
 
-def get_variants_in_region(db, chrom, start, stop):
+def get_variants_in_region(db, project_name, chrom, start, stop):
     """
     Variants that overlap a region
     Unclear if this will include CNVs
     """
     xstart = get_xpos(chrom, start)
     xstop = get_xpos(chrom, stop)
-    variants = list(db.variants.find({
+    variants = list(db[project_name].variants.find({
         'xpos': {'$lte': xstop, '$gte': xstart}
     }, fields={'_id': False}, limit=SEARCH_LIMIT))
     add_consequence_to_variants(variants)
@@ -248,12 +253,12 @@ def get_variants_in_region(db, chrom, start, stop):
     return list(variants)
 
 
-def get_metrics(db, variant):
+def get_metrics(db, project_name, variant):
     if 'allele_count' not in variant or variant['allele_num'] == 0:
         return None
     metrics = {}
     for metric in METRICS:
-        metrics[metric] = db.metrics.find_one({'metric': metric}, fields={'_id': False})
+        metrics[metric] = db[project_name].metrics.find_one({'metric': metric}, fields={'_id': False})
 
     metric = None
     if variant['allele_count'] == 1:
@@ -266,7 +271,7 @@ def get_metrics(db, variant):
                 metric = af
                 break
     if metric is not None:
-        metrics['Site Quality'] = db.metrics.find_one({'metric': 'binned_%s' % metric}, fields={'_id': False})
+        metrics['Site Quality'] = db[project_name].metrics.find_one({'metric': 'binned_%s' % metric}, fields={'_id': False})
     return metrics
 
 
@@ -283,11 +288,11 @@ def remove_extraneous_information(variant):
     del variant['vep_annotations']
 
 
-def get_variants_in_gene(db, gene_id):
+def get_variants_in_gene(db, project_name, gene_id):
     """
     """
     variants = []
-    for variant in db.variants.find({'genes': gene_id}, fields={'_id': False}):
+    for variant in db[project_name].variants.find({'genes': gene_id}, fields={'_id': False}):
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Gene_Name'] == gene_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)
@@ -301,11 +306,11 @@ def get_transcripts_in_gene(db, gene_id):
     return list(db.transcripts.find({'gene_id': gene_id}, fields={'_id': False}))
 
 
-def get_variants_in_transcript(db, transcript_id):
+def get_variants_in_transcript(db, project_name, transcript_id):
     """
     """
     variants = []
-    for variant in db.variants.find({'transcripts': transcript_id}, fields={'_id': False}):
+    for variant in db[project_name].variants.find({'transcripts': transcript_id}, fields={'_id': False}):
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Feature_ID'] == transcript_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)
