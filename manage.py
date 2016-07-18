@@ -18,20 +18,20 @@ def load_db():
 
 
 @manager.command
-def load_base_coverage(project_name):
-    exac.load_base_coverage(project_name)
+def load_base_coverage(project_name, genome):
+    exac.load_base_coverage(project_name, genome)
 
 
 @manager.command
-def load_variants_file(project_name):
-    exac.load_variants_file(project_name)
+def load_variants_file(project_name, genome):
+    exac.load_variants_file(project_name, genome)
 
 
 @manager.command
-def reload_variants(project_name):
-    exac.load_variants_file(project_name)
+def reload_variants(project_name, genome):
+    exac.load_variants_file(project_name, genome)
     # exac.load_mnps()
-    exac.precalculate_metrics(project_name)
+    exac.precalculate_metrics(project_name, genome)
 
 
 @manager.command

@@ -29,35 +29,27 @@
         ga('send', 'pageview');
     </script>
     <script type="text/javascript">
-        number_of_samples = 60706;
-        release_number = 0.3;
-        number_of_samples_full = 91796;
-        $(document).ready(function() {
-            $('.number_samples').html(Number(number_of_samples).toLocaleString('en'));
-            $('.number_samples_full').html(Number(number_of_samples_full).toLocaleString('en'));
-            $('.release_number').html(Number(release_number).toLocaleString('en'));
-        });
         $(function() {
             var bestPictures = new Bloodhound({
               datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
               queryTokenizer: Bloodhound.tokenizers.whitespace,
-              remote: '/autocomplete/%QUERY'
+              remote: '/{{ genome }}/autocomplete/%QUERY'
             });
 
             bestPictures.initialize();
 
             $('.awesomebar').typeahead(
                 {
-                    autoselect: true,
+                    autoselect: true
                 },
                 {
                     name: 'best-pictures',
                     displayKey: 'value',
-                    source: bestPictures.ttAdapter(),
+                    source: bestPictures.ttAdapter()
                 }
             );
             $('.awesomebar').bind('typeahead:selected', function(obj, datum) {
-                window.location.href = '/project/{{ project_name }}/awesome?query=' + datum.value;
+                window.location.href = '/{{ genome }}/{{ project_name }}/awesome?query=' + datum.value;
             });
 
             var projects = new Bloodhound({
@@ -70,12 +62,12 @@
 
             $('.awesomeprojectbar').typeahead(
                 {
-                    autoselect: true,
+                    autoselect: true
                 },
                 {
                     name: 'projects',
                     displayKey: 'value',
-                    source: projects.ttAdapter(),
+                    source: projects.ttAdapter()
                 }
             );
             $('.awesomeprojectbar').bind('typeahead:selected', function(obj, datum) {
@@ -103,7 +95,7 @@
                         <input type="submit" style="position: absolute; left: -9999px"/>
                     </div>
                 </form>
-                <form action="/awesome" class="navbar-form" role="search">
+                <form action="/{{ genome }}/{{ project_name }}/awesome" class="navbar-form" role="search">
                     <div class="form-group" id="navbar-awesomebar">
                         <input type="submit" style="display: none;"/>
                         <input id="navbar-searchbox-input" name="query" class="form-control awesomebar" type="text" placeholder="Gene, transcript, variant, or region"/>

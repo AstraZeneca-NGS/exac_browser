@@ -13,47 +13,52 @@
         });
         window.page_name = window.gene.symbol + '_' + window.transcript.transcript_id;
     </script>
-    <div class="container">
-        <h1>{{ gene.gene_name }}</h1>
-        <h3>Transcript: {{ transcript.transcript_id }} (<span id="number_of_exons"></span> coding exons)</h3>
-        <script>
-            filtered_variants = _.filter(window.transcript.exons, function(d) {
-                            return d.feature_type == 'CDS';
-                        });
-            $('#number_of_exons').html(filtered_variants.length);
-        </script>
-        <div class="dropdown">
-            <button class="btn btn-default dropdown-toggle" type="button" id="transcript_dropdown" data-toggle="dropdown">
-                Other transcripts in this gene
-                <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu" aria-labelledby="transcript_dropdown">
-                {% for transcript in gene.transcripts %}
-                    <li role="presentation">
-                        <a role="menuitem" tabindex="-1" href="/project/{{ project_name }}/transcript/{{ transcript.transcript_id }}">
-                            {{ transcript.transcript_id }}
-                            {% if transcript.transcript_id == gene.canonical_transcript %}
-                                *
-                            {% endif %}
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
+    <div class="container-fluid">
+        <div class="col-md-10 col-xs-offset-1 col-md-offset-1">
+            <h1>{{ gene.gene_name }}</h1>
+            <hr/>
+            <h3>Transcript: {{ transcript.transcript_id }} (<span id="number_of_exons"></span> coding exons)</h3>
+            <script>
+                filtered_variants = _.filter(window.transcript.exons, function(d) {
+                                return d.feature_type == 'CDS';
+                            });
+                $('#number_of_exons').html(filtered_variants.length);
+            </script>
+            <div class="dropdown">
+                <button class="btn btn-default dropdown-toggle" type="button" id="transcript_dropdown" data-toggle="dropdown">
+                    Other transcripts in this gene
+                    <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu" role="menu" aria-labelledby="transcript_dropdown">
+                    {% for transcript in gene.transcripts %}
+                        <li role="presentation">
+                            <a role="menuitem" tabindex="-1" href="/{{ genome }}/{{ project_name }}/transcript/{{ transcript.transcript_id }}">
+                                {{ transcript.transcript_id }}
+                                {% if transcript.transcript_id == gene.canonical_transcript %}
+                                    *
+                                {% endif %}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
         <div class="row">
-            <div class="row">
-                {% with plot_id = transcript.transcript_id %}
-                    {% include 'transcript_display.html' %}
-                {% endwith %}
-            </div>
-            <div class="row">
-                {% if variants_in_transcript %}
-                    {% with chrom = variants_in_transcript[0].chrom %}
-                        {% include 'variant_table.html' %}
+            <div class="col-md-10 col-md-offset-1">
+                <div class="row">
+                    {% with plot_id = transcript.transcript_id %}
+                        {% include 'transcript_display.html' %}
                     {% endwith %}
-                {% else %}
-                    No variants in this gene.
-                {% endif %}
+                </div>
+                <div class="row">
+                    {% if variants_in_transcript %}
+                        {% with chrom = variants_in_transcript[0].chrom %}
+                            {% include 'variant_table.html' %}
+                        {% endwith %}
+                    {% else %}
+                        No variants in this gene.
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

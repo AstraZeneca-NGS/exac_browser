@@ -12,7 +12,9 @@
         $(document).ready(function() {
             if (window.coverage_stats != null) {
                 region_chart(window.coverage_stats, window.variants);
-                update_variants();
+                {% if variants_in_region %}
+                    update_variants();
+                {% endif %}
             }
         });
         {% endif %}
@@ -50,7 +52,7 @@
             <div class="section_header">Genes</div>
             <ul>
                 {% for gene in genes_in_region %}
-                    <li><a href="/project/{{ project_name }}/gene/{{ gene.gene_id }}">{{ gene.gene_id }}</a></li>
+                    <li><a href="/{{ genome }}/{{ project_name }}/gene/{{ gene.gene_id }}">{{ gene.gene_id }}</a></li>
                 {% endfor %}
             </ul>
             <br/>

@@ -14,7 +14,11 @@ METRICS = [
 ]
 
 
-def add_transcript_coordinate_to_variants(db, variant_list, transcript_id):
+def get_project_key(project_name, genome):
+    return project_name + '_' + genome
+
+
+def add_transcript_coordinate_to_variants(db, genome, variant_list, transcript_id):
     """
     Each variant has a 'xpos' and 'pos' positional attributes.
     This method takes a list of variants and adds a third position: the "transcript coordinates".
@@ -41,7 +45,7 @@ def add_transcript_coordinate_to_variants(db, variant_list, transcript_id):
 
     import lookups
     # make sure exons is sorted by (start, end)
-    exons = sorted(lookups.get_exons_in_transcript(db, transcript_id), key=itemgetter('start', 'stop'))
+    exons = sorted(lookups.get_exons_in_transcript(db, genome, transcript_id), key=itemgetter('start', 'stop'))
 
     # offset from start of base for exon in ith position (so first item in this list is always 0)
     exon_offsets = [0 for i in range(len(exons))]

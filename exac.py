@@ -18,6 +18,7 @@ from utils import *
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify, send_from_directory
 from flask.ext.compress import Compress
 from flask.ext.runner import Runner
+#from flask.ext.script import Manager, Server
 from flask_errormail import mail_on_500
 
 from flask import Response
@@ -41,9 +42,10 @@ app = Flask(__name__)
 mail_on_500(app, ADMINISTRATORS)
 Compress(app)
 app.config['COMPRESS_DEBUG'] = True
+#app.config['SERVER_NAME'] = 0.0.0.0
 cache = SimpleCache(default_timeout=60*60*24)
 
-EXAC_FILES_DIRECTORY = '/Users/alla/Documents/exac_browser/exac_data/'
+EXAC_FILES_DIRECTORY = '../exac_data/'
 REGION_LIMIT = 1E5
 EXON_PADDING = 50
 
@@ -54,12 +56,12 @@ app.config.update(dict(
     DB_NAME='exac', 
     DEBUG=True,
     SECRET_KEY='development key',
-    LOAD_DB_PARALLEL_PROCESSES = 4,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
-    FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'all_features.hg19.bed.gz'),
-    CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'canonical_transcripts.txt.gz'),
-    OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'omim_info.txt.gz'),
-    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'vardict.%s.vcf.gz'),
-    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'coverage', '%s', 'coverage.*.txt.gz'),
+    LOAD_DB_PARALLEL_PROCESSES = 1,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
+    FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
+    CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
+    OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
+    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict.%s.vcf.gz'),
+    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'coverage.*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
@@ -120,7 +122,7 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
     print("Finished loading subset %(subset_i)s from  %(short_filenames)s (%(counter)s records)" % locals())
 
 
-def load_base_coverage(project_name=None):
+def load_base_coverage(project_name=None, genome=None):
     def load_coverage(coverage_files, i, n, db):
         coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file)
         try:
@@ -130,21 +132,21 @@ def load_base_coverage(project_name=None):
 
     full_db = get_db()
     if project_name:
-        project_names = [project_name]
+        projects = [get_one_project(full_db, project_name, genome)]
     else:
-        project_names = get_project_names(full_db)
+        projects = get_projects(full_db)
     procs = []
-    for project_name in project_names:
-        db = full_db[project_name]
+    for project_name, genome in projects:
+        db = full_db[get_project_key(project_name, genome)]
         db.base_coverage.drop()
         print("Dropped db.base_coverage for " + project_name)
         # load coverage first; variant info will depend on coverage
         db.base_coverage.ensure_index('xpos')
 
-        coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % project_name)
+        coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name))
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
         # random.shuffle(app.config['BASE_COVERAGE_FILES'])
-        max_procs = max(1, num_procs / len(project_names))
+        max_procs = max(1, num_procs / len(projects))
         for i in range(max_procs):
             p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db))
             p.start()
@@ -154,13 +156,23 @@ def load_base_coverage(project_name=None):
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
 
 
-def get_project_names(full_db):
+def get_projects(full_db):
     projects = full_db.projects.find()
-    project_names = [project['name'] for project in projects]
-    return project_names
+    projects = [(project['name'], project['genome']) for project in projects]
+    return projects
 
 
-def load_variants_file(project_name=None):
+def get_one_project(full_db, project_name, genome):
+    if not genome:
+        print('Error! Please specify project name and genome')
+        sys.exit(2)
+    project = (project_name, genome)
+    if not full_db.projects.find({'name': project_name, 'genome': genome}):
+        full_db.projects.insert({'name': project_name, 'genome': genome})
+    return project
+
+
+def load_variants_file(project_name=None, genome=None):
     def load_variants(sites_file, i, n, db, canonical_transcripts):
         variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf, canonical_transcripts)
         try:
@@ -170,15 +182,18 @@ def load_variants_file(project_name=None):
 
     full_db = get_db()
     if project_name:
-        project_names = [project_name]
+        projects = [get_one_project(full_db, project_name, genome)]
     else:
-        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % '*')
-        project_names = [basename(vcf).split('.')[1] for vcf in sites_vcfs]
         full_db.projects.drop()
-        full_db.projects.insert({'name': project_name} for project_name in project_names)
+        for genome in 'hg19', 'hg38':
+            sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, '*'))
+            project_names = [basename(vcf).split('.')[1] for vcf in sites_vcfs]
+            if project_names:
+                full_db.projects.insert({'name': project_name, 'genome': genome} for project_name in project_names)
+        projects = get_projects(full_db)
     procs = []
-    for project_name in project_names:
-        db = full_db[project_name]
+    for project_name, genome in projects:
+        db = full_db[get_project_key(project_name, genome)]
         db.variants.drop()
         print("Dropped db.variants for " + project_name)
 
@@ -190,19 +205,19 @@ def load_variants_file(project_name=None):
         db.variants.ensure_index('genes')
         db.variants.ensure_index('transcripts')
 
-        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % project_name)
+        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, project_name))
         if len(sites_vcfs) == 0:
             raise IOError("No vcf file found")
         elif len(sites_vcfs) > 1:
             raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
 
         canonical_transcripts = defaultdict()
-        with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE']) as canonical_transcript_file:
+        with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE'] % genome) as canonical_transcript_file:
             for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
                 canonical_transcripts[gene] = transcript
 
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-        max_procs = max(1, num_procs / len(project_names))
+        max_procs = max(1, num_procs / len(projects))
         for i in range(max_procs):
             p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
             p.start()
@@ -211,7 +226,7 @@ def load_variants_file(project_name=None):
 
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
 
-
+'''
 def load_constraint_information():
     db = get_db()
 
@@ -244,88 +259,89 @@ def load_mnps():
             db.variants.find_and_modify({'_id': variant['_id']}, {'$set': {'has_mnp': True}, '$push': {'mnps': mnp}}, w=0)
 
     db.variants.ensure_index('has_mnp')
-    print 'Done loading MNP info. Took %s seconds' % int(time.time() - start_time)
+    print 'Done loading MNP info. Took %s seconds' % int(time.time() - start_time)'''
 
 
 def load_gene_models():
-    db = get_db()
+    full_db = get_db()
+    for genome in 'hg19', 'hg38':
+        db = full_db[genome]
+        db.genes.drop()
+        db.transcripts.drop()
+        db.exons.drop()
+        print 'Dropped db.genes, db.transcripts, and db.exons for ' + genome
 
-    db.genes.drop()
-    db.transcripts.drop()
-    db.exons.drop()
-    print 'Dropped db.genes, db.transcripts, and db.exons.'
+        start_time = time.time()
 
-    start_time = time.time()
+        canonical_transcripts = {}
+        with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE'] % genome) as canonical_transcript_file:
+            for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
+                canonical_transcripts[gene] = transcript
 
-    canonical_transcripts = {}
-    with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE']) as canonical_transcript_file:
-        for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
-            canonical_transcripts[gene] = transcript
+        omim_annotations = {}
+        '''with gzip.open(app.config['OMIM_FILE'] % genome) as omim_file:
+            for fields in get_omim_associations(omim_file):
+                if fields is None:
+                    continue
+                gene, transcript, accession, description = fields
+                omim_annotations[gene] = (accession, description)
 
-    omim_annotations = {}
-    with gzip.open(app.config['OMIM_FILE']) as omim_file:
-        for fields in get_omim_associations(omim_file):
-            if fields is None:
-                continue
-            gene, transcript, accession, description = fields
-            omim_annotations[gene] = (accession, description)
+        dbnsfp_info = {}
+        with gzip.open(app.config['DBNSFP_FILE'] % genome) as dbnsfp_file:
+            for dbnsfp_gene in get_dbnsfp_info(dbnsfp_file):
+                other_names = [other_name.upper() for other_name in dbnsfp_gene['gene_other_names']]
+                dbnsfp_info[dbnsfp_gene['ensembl_gene']] = (dbnsfp_gene['gene_full_name'], other_names)'''
 
-    dbnsfp_info = {}
-    with gzip.open(app.config['DBNSFP_FILE']) as dbnsfp_file:
-        for dbnsfp_gene in get_dbnsfp_info(dbnsfp_file):
-            other_names = [other_name.upper() for other_name in dbnsfp_gene['gene_other_names']]
-            dbnsfp_info[dbnsfp_gene['ensembl_gene']] = (dbnsfp_gene['gene_full_name'], other_names)
+        print 'Done loading metadata. Took %s seconds' % int(time.time() - start_time)
 
-    print 'Done loading metadata. Took %s seconds' % int(time.time() - start_time)
+        # grab genes from GTF
+        start_time = time.time()
+        with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
+            for gene in get_genes_from_features(features_file):
+                gene_id = gene['gene_id']
+                if gene_id in canonical_transcripts:
+                    gene['canonical_transcript'] = canonical_transcripts[gene_id]
+                if gene_id in omim_annotations:
+                    gene['omim_accession'] = omim_annotations[gene_id][0]
+                    gene['omim_description'] = omim_annotations[gene_id][1]
+                '''if gene_id in dbnsfp_info:
+                    gene['full_gene_name'] = dbnsfp_info[gene_id][0]
+                    gene['other_names'] = dbnsfp_info[gene_id][1]'''
+                db.genes.insert(gene, w=0)
 
-    # grab genes from GTF
-    start_time = time.time()
-    with gzip.open(app.config['FEATURES_FILE']) as features_file:
-        for gene in get_genes_from_features(features_file):
-            gene_id = gene['gene_id']
-            if gene_id in canonical_transcripts:
-                gene['canonical_transcript'] = canonical_transcripts[gene_id]
-            if gene_id in omim_annotations:
-                gene['omim_accession'] = omim_annotations[gene_id][0]
-                gene['omim_description'] = omim_annotations[gene_id][1]
-            if gene_id in dbnsfp_info:
-                gene['full_gene_name'] = dbnsfp_info[gene_id][0]
-                gene['other_names'] = dbnsfp_info[gene_id][1]
-            db.genes.insert(gene, w=0)
+        print 'Done loading genes. Took %s seconds' % int(time.time() - start_time)
 
-    print 'Done loading genes. Took %s seconds' % int(time.time() - start_time)
+        start_time = time.time()
+        db.genes.ensure_index('gene_id')
+        db.genes.ensure_index('gene_name_upper')
+        db.genes.ensure_index('gene_name')
+        db.genes.ensure_index('other_names')
+        db.genes.ensure_index('xstart')
+        db.genes.ensure_index('xstop')
+        print 'Done indexing gene table. Took %s seconds' % int(time.time() - start_time)
 
-    start_time = time.time()
-    db.genes.ensure_index('gene_id')
-    db.genes.ensure_index('gene_name_upper')
-    db.genes.ensure_index('gene_name')
-    db.genes.ensure_index('other_names')
-    db.genes.ensure_index('xstart')
-    db.genes.ensure_index('xstop')
-    print 'Done indexing gene table. Took %s seconds' % int(time.time() - start_time)
+        # and now transcripts
+        start_time = time.time()
+        with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
+            db.transcripts.insert((transcript for transcript in get_transcripts_from_features(features_file)), w=0)
+        print 'Done loading transcripts. Took %s seconds' % int(time.time() - start_time)
 
-    # and now transcripts
-    start_time = time.time()
-    with gzip.open(app.config['FEATURES_FILE']) as features_file:
-        db.transcripts.insert((transcript for transcript in get_transcripts_from_features(features_file)), w=0)
-    print 'Done loading transcripts. Took %s seconds' % int(time.time() - start_time)
+        start_time = time.time()
+        db.transcripts.ensure_index('transcript_id')
+        db.transcripts.ensure_index('gene_id')
+        print 'Done indexing transcript table. Took %s seconds' % int(time.time() - start_time)
 
-    start_time = time.time()
-    db.transcripts.ensure_index('transcript_id')
-    db.transcripts.ensure_index('gene_id')
-    print 'Done indexing transcript table. Took %s seconds' % int(time.time() - start_time)
+        # Building up gene definitions
+        start_time = time.time()
+        with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
+            db.exons.insert((exon for exon in get_exons_from_features(features_file)), w=0)
+        print 'Done loading exons. Took %s seconds' % int(time.time() - start_time)
 
-    # Building up gene definitions
-    start_time = time.time()
-    with gzip.open(app.config['FEATURES_FILE']) as features_file:
-        db.exons.insert((exon for exon in get_exons_from_features(features_file)), w=0)
-    print 'Done loading exons. Took %s seconds' % int(time.time() - start_time)
-
-    start_time = time.time()
-    db.exons.ensure_index('exon_id')
-    db.exons.ensure_index('transcript_id')
-    db.exons.ensure_index('gene_id')
-    print 'Done indexing exon table. Took %s seconds' % int(time.time() - start_time)
+        start_time = time.time()
+        db.exons.ensure_index('exon_id')
+        db.exons.ensure_index('transcript_id')
+        db.exons.ensure_index('gene_id')
+        print 'Done indexing exon table. Took %s seconds' % int(time.time() - start_time)
 
     return []
 
@@ -419,15 +435,16 @@ def create_cache():
     """
     # create autocomplete_entries.txt
     autocomplete_strings = []
-    db = get_db()
-    for gene in db.genes.find():
-        autocomplete_strings.append(gene['gene_name'])
-        if 'other_names' in gene:
-            autocomplete_strings.extend(gene['other_names'])
+    full_db = get_db()
+    projects = get_projects(full_db)
+    for genome in 'hg19', 'hg38':
+        for gene in full_db[genome].genes.find():
+            autocomplete_strings.append(gene['gene_name'])
+            if 'other_names' in gene:
+                autocomplete_strings.extend(gene['other_names'])
 
-    save_autocomplete_data(set(autocomplete_strings), 'autocomplete_strings.txt')
-    autocomplete_strings = get_project_names(db)
-    save_autocomplete_data(autocomplete_strings, 'autocomplete_projects.txt')
+        save_autocomplete_data(set(autocomplete_strings), genome + '_autocomplete_strings.txt')
+    save_autocomplete_data([project_name for (project_name, project_genome) in projects], 'autocomplete_projects.txt')
 
     '''
     # create static gene pages for genes in
@@ -446,15 +463,15 @@ def create_cache():
         f.close()'''
 
 
-def precalculate_metrics(project_name=None):
+def precalculate_metrics(project_name=None, genome=None):
     import numpy
     full_db = get_db()
     if project_name:
-        project_names = [project_name]
+        projects = [get_one_project(full_db, project_name, genome)]
     else:
-        project_names = get_project_names(full_db)
-    for project_name in project_names:
-        db = full_db[project_name]
+        projects = get_projects(full_db)
+    for project_name, genome in projects:
+        db = full_db[get_project_key(project_name, genome)]
         print 'Reading %s variants for %s...' % (db.variants.count(), project_name)
         metrics = defaultdict(list)
         binned_metrics = defaultdict(list)
@@ -542,20 +559,23 @@ def homepage():
     return t
 
 
-@app.route('/project/<project_name>/')
-def project_page(project_name):
+@app.route('/<project_genome>/<project_name>/')
+def project_page(project_name, project_genome):
     t = render_template(
         'project_page.html',
-        project_name=project_name
+        project_name=project_name,
+        genome=project_genome
     )
     return t
 
 
-@app.route('/autocomplete/<query>')
-def awesome_autocomplete(query):
+@app.route('/<project_genome>/<project_name>/autocomplete/<query>')
+def awesome_autocomplete(query, project_genome):
     if not hasattr(g, 'autocomplete_strings'):
-        g.autocomplete_strings = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), 'autocomplete_strings.txt'))]
-    suggestions = lookups.get_awesomebar_suggestions(g.autocomplete_strings, query)
+        g.autocomplete_strings = dict()
+        for genome in 'hg19', 'hg38':
+            g.autocomplete_strings[genome] = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), genome + '_autocomplete_strings.txt'))]
+    suggestions = lookups.get_awesomebar_suggestions(g.autocomplete_strings[project_genome], query)
     return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
 
 
@@ -567,49 +587,51 @@ def awesome_project_autocomplete(query):
     return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
 
 
-@app.route('/project/<project_name>/awesome')
-def awesome(project_name):
+@app.route('/<project_genome>/<project_name>/awesome')
+def awesome(project_name, project_genome):
     db = get_db()
     query = request.args.get('query')
-    datatype, identifier = lookups.get_awesomebar_result(db, query)
+    datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, query)
 
     print "Searched for %s: %s" % (datatype, identifier)
     if datatype == 'gene':
-        return redirect('/project/{}/gene/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/gene/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'transcript':
-        return redirect('/project/{}/transcript/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/transcript/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'variant':
-        return redirect('/project/{}/variant/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/variant/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'region':
-        return redirect('/project/{}/region/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/region/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'dbsnp_variant_set':
-        return redirect('/project/{}/dbsnp/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/dbsnp/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'error':
-        return redirect('/project/{}/error/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/error/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'not_found':
-        return redirect('/project/{}/not_found/{}'.format(project_name, identifier))
+        return redirect('/{}/{}/not_found/{}'.format(project_genome, project_name, identifier))
     else:
         raise Exception
+
 
 @app.route('/awesomeproject')
 def awesome_project():
     db = get_db()
     query = request.args.get('query')
-    project_name = lookups.get_project_by_project_name(db, query)
-    if project_name:
-        return redirect('/project/{}'.format(project_name))
+    project = lookups.get_project_by_project_name(db, query)
+    if project:
+        return redirect('/{}/{}'.format(project['genome'], project['name']))
 
     return redirect('/not_found/{}'.format(query))
 
-@app.route('/project/<project_name>/variant/<variant_str>')
-def variant_page(project_name, variant_str):
+
+@app.route('/<project_genome>/<project_name>/variant/<variant_str>')
+def variant_page(project_name, project_genome, variant_str):
     db = get_db()
     try:
         chrom, pos, ref, alt = variant_str.split('-')
         pos = int(pos)
         # pos, ref, alt = get_minimal_representation(pos, ref, alt)
         xpos = get_xpos(chrom, pos)
-        variant = lookups.get_variant(db, project_name, xpos, ref, alt)
+        variant = lookups.get_variant(db, project_name, project_genome, xpos, ref, alt)
 
         if variant is None:
             variant = {
@@ -627,9 +649,9 @@ def variant_page(project_name, variant_str):
             for annotation in variant['vep_annotations']:
                 annotation['HGVS'] = get_proper_hgvs(annotation)
                 consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene_Name'], []).append(annotation)
-        base_coverage = lookups.get_coverage_for_bases(db, project_name, xpos, xpos + len(ref) - 1)
+        base_coverage = lookups.get_coverage_for_bases(db, project_name, project_genome, xpos, xpos + len(ref) - 1)
         any_covered = any([x['has_coverage'] for x in base_coverage])
-        metrics = lookups.get_metrics(db, project_name, variant)
+        metrics = lookups.get_metrics(db, project_name, project_genome, variant)
 
         # check the appropriate sqlite db to get the *expected* number of
         # available bams and *actual* number of available bams for this variant
@@ -673,6 +695,7 @@ def variant_page(project_name, variant_str):
         return render_template(
             'variant.html',
             project_name=project_name,
+            genome=project_genome,
             variant=variant,
             base_coverage=base_coverage,
             consequences=consequences,
@@ -685,38 +708,39 @@ def variant_page(project_name, variant_str):
         abort(404)
 
 
-@app.route('/project/<project_name>/gene/<gene_id>')
-def gene_page(project_name, gene_id):
+@app.route('/<project_genome>/<project_name>/gene/<gene_id>')
+def gene_page(project_name, project_genome, gene_id):
     if gene_id in GENES_TO_CACHE:
         return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
     else:
-        return get_gene_page_content(project_name, gene_id)
+        return get_gene_page_content(project_name, project_genome, gene_id)
 
 
-def get_gene_page_content(project_name, gene_id):
+def get_gene_page_content(project_name, project_genome, gene_id):
     db = get_db()
     try:
-        gene = lookups.get_gene(db, gene_id)
+        gene = lookups.get_gene(db, project_genome, gene_id)
         if gene is None:
             abort(404)
         cache_key = 't-gene-{}'.format(gene_id)
         t = cache.get(cache_key)
         print 'Rendering %sgene: %s' % ('' if t is None else 'cached ', gene_id)
         if t is None:
-            variants_in_gene = lookups.get_variants_in_gene(db, project_name, gene_id)
-            transcripts_in_gene = lookups.get_transcripts_in_gene(db, gene_id)
+            variants_in_gene = lookups.get_variants_in_gene(db, project_name, project_genome, gene_id)
+            transcripts_in_gene = lookups.get_transcripts_in_gene(db, project_genome, gene_id)
 
             # Get some canonical transcript and corresponding info
             transcript_id = gene['canonical_transcript']
-            transcript = lookups.get_transcript(db, transcript_id)
-            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, transcript_id)
-            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
-            add_transcript_coordinate_to_variants(db, variants_in_transcript, transcript_id)
-            constraint_info = lookups.get_constraint_for_transcript(db, transcript_id)
+            transcript = lookups.get_transcript(db, project_genome, transcript_id)
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
+            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
+            add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
+            constraint_info = lookups.get_constraint_for_transcript(db, project_genome, transcript_id)
 
             t = render_template(
                 'gene.html',
                 project_name=project_name,
+                genome=project_genome,
                 gene=gene,
                 transcript=transcript,
                 variants_in_gene=variants_in_gene,
@@ -733,28 +757,29 @@ def get_gene_page_content(project_name, gene_id):
         abort(404)
 
 
-@app.route('/project/<project_name>/transcript/<transcript_id>')
-def transcript_page(project_name, transcript_id):
+@app.route('/<project_genome>/<project_name>/transcript/<transcript_id>')
+def transcript_page(project_name, project_genome, transcript_id):
     db = get_db()
     try:
-        transcript = lookups.get_transcript(db, transcript_id)
+        transcript = lookups.get_transcript(db, project_genome, transcript_id)
 
         cache_key = 't-transcript-{}'.format(transcript_id)
         t = cache.get(cache_key)
         print 'Rendering %stranscript: %s' % ('' if t is None else 'cached ', transcript_id)
         if t is None:
 
-            gene = lookups.get_gene(db, transcript['gene_id'])
-            gene['transcripts'] = lookups.get_transcripts_in_gene(db, transcript['gene_id'])
-            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, transcript_id)
+            gene = lookups.get_gene(db, project_genome, transcript['gene_id'])
+            gene['transcripts'] = lookups.get_transcripts_in_gene(db, project_genome, transcript['gene_id'])
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
 
-            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
+            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
 
-            add_transcript_coordinate_to_variants(db, variants_in_transcript, transcript_id)
+            add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
 
             t = render_template(
                 'transcript.html',
                 project_name=project_name,
+                genome=project_genome,
                 transcript=transcript,
                 transcript_json=json.dumps(transcript),
                 variants_in_transcript=variants_in_transcript,
@@ -772,8 +797,8 @@ def transcript_page(project_name, transcript_id):
         abort(404)
 
 
-@app.route('/project/<project_name>/region/<region_id>')
-def region_page(project_name, region_id):
+@app.route('/<project_genome>/<project_name>/region/<region_id>')
+def region_page(project_name, project_genome, region_id):
     db = get_db()
     try:
         region = region_id.split('-')
@@ -792,6 +817,7 @@ def region_page(project_name, region_id):
                 return render_template(
                     'region.html',
                     project_name=project_name,
+                    genome=project_genome,
                     genes_in_region=None,
                     variants_in_region=None,
                     chrom=chrom,
@@ -803,14 +829,15 @@ def region_page(project_name, region_id):
             if start == stop:
                 start -= 20
                 stop += 20
-            genes_in_region = lookups.get_genes_in_region(db, chrom, start, stop)
-            variants_in_region = lookups.get_variants_in_region(db, project_name, chrom, start, stop)
+            genes_in_region = lookups.get_genes_in_region(db, project_genome, chrom, start, stop)
+            variants_in_region = lookups.get_variants_in_region(db, project_name, project_genome, chrom, start, stop)
             xstart = get_xpos(chrom, start)
             xstop = get_xpos(chrom, stop)
-            coverage_array = lookups.get_coverage_for_bases(db, project_name, xstart, xstop)
+            coverage_array = lookups.get_coverage_for_bases(db, project_name, project_genome, xstart, xstop)
             t = render_template(
                 'region.html',
                 project_name=project_name,
+                genome=project_genome,
                 genes_in_region=genes_in_region,
                 variants_in_region=variants_in_region,
                 chrom=chrom,
@@ -826,11 +853,11 @@ def region_page(project_name, region_id):
         abort(404)
 
 
-@app.route('/dbsnp/<rsid>')
-def dbsnp_page(rsid):
+@app.route('/<genome>/<project_name>/dbsnp/<rsid>')
+def dbsnp_page(rsid, project_name, genome):
     db = get_db()
     try:
-        variants = lookups.get_variants_by_rsid(db, rsid)
+        variants = lookups.get_variants_by_rsid(db, project_name, genome, rsid)
         chrom = None
         start = None
         stop = None
@@ -838,6 +865,7 @@ def dbsnp_page(rsid):
         return render_template(
             'region.html',
             rsid=rsid,
+            genome=genome,
             variants_in_region=variants,
             chrom=chrom,
             start=start,
@@ -965,5 +993,12 @@ def apply_caching(response):
 
 
 if __name__ == "__main__":
-    runner = Runner(app)  # adds Flask command line options for setting host, port, etc.
+    # adds Flask command line options for setting host, port, etc.
+    runner = Runner(app)
     runner.run()
+    #manager = Manager(app)
+    #manager.run(host="0.0.0.0")
+    #manager.add_command("runserver", Server(
+    #use_debugger = True,
+    #use_reloader = True,
+    #host = '0.0.0.0') )

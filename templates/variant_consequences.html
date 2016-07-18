@@ -11,7 +11,7 @@
 <ul>
     {% for gene in consequences[consequence] %}
         <li>
-            <a href="/project/{{ project_name }}/gene/{{ gene }}">
+            <a href="/{{ genome }}/{{ project_name }}/gene/{{ gene }}">
             {% if consequences[consequence][gene][0].SYMBOL %}
                 {{ consequences[consequence][gene][0].SYMBOL }}
             {% else %}
@@ -40,7 +40,7 @@
                 </span>
             {% else %}
                 {% set annotation = consequences[consequence][gene][0] %}
-                 - <a href="/project/{{ project_name }}/transcript/{{ annotation.Feature }}">
+                 - <a href="/{{ genome }}/{{ project_name }}/transcript/{{ annotation.Feature }}">
                     {{ annotation.Feature }}
                     {% if annotation.CANONICAL == 'YES' %}
                         *

@@ -90,7 +90,9 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant = {}
                 variant['chrom'] = fields[0]
                 variant['pos'] = pos
-                variant['rsid'] = fields[2]
+                rs_ids = re.findall(r'rs\d+', fields[3])
+                if rs_ids:
+                    variant['rsid'] = rs_ids[0]
                 variant['xpos'] = get_xpos(variant['chrom'], variant['pos'])
                 variant['ref'] = ref
                 variant['alt'] = alt
@@ -223,6 +225,7 @@ def get_genes_from_features(features_file):
     Parse features bed file;
     Returns iter of gene dicts
     """
+    gene_ids = set()
     for line in features_file:
         if line.startswith('#'):
             continue
@@ -239,7 +242,9 @@ def get_genes_from_features(features_file):
         stop = int(fields[2]) + 1
         gene_id = fields[3]
         strand = fields[5]
-
+        if gene_id in gene_ids:
+            continue
+        gene_ids.add(gene_id)
         gene = {
             'gene_id': gene_id,
             'gene_name': gene_id,
