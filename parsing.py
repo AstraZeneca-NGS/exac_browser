@@ -90,7 +90,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant = {}
                 variant['chrom'] = fields[0]
                 variant['pos'] = pos
-                rs_ids = re.findall(r'rs\d+', fields[3])
+                rs_ids = re.findall(r'rs\d+', fields[2])
                 if rs_ids:
                     variant['rsid'] = rs_ids[0]
                 variant['xpos'] = get_xpos(variant['chrom'], variant['pos'])

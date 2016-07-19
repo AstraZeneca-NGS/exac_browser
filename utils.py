@@ -101,9 +101,9 @@ def get_flags_from_variant(variant):
         flags.append('MNP')
     lof_annotations = [x for x in variant['vep_annotations'] if x['LoF'] != '']
     if not len(lof_annotations): return flags
-    if all([x['LoF'] != 'HC' for x in lof_annotations]):
+    if all(['LoF' in x and x['LoF'] != 'HC' for x in lof_annotations]):
         flags.append('LC LoF')
-    if all([x['LoF_flags'] != '' for x in lof_annotations]):
+    if all(['LoF_flags' in x and x['LoF_flags'] != '' for x in lof_annotations]):
         flags.append('LoF flag')
     return flags
 
@@ -152,6 +152,7 @@ csq_order = ["transcript_ablation",
 "start_lost",  # new in v81
 "initiator_codon_variant",  # deprecated
 "transcript_amplification",
+"disruptive_inframe_deletion",
 "inframe_insertion",
 "inframe_deletion",
 "missense_variant",
@@ -181,6 +182,7 @@ csq_order = ["transcript_ablation",
 "regulatory_region_variant",
 "feature_truncation",
 "intergenic_variant",
+"protein_protein_contact"
 ""]
 assert len(csq_order) == len(set(csq_order)) # No dupes!
 
