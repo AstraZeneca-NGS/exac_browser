@@ -184,7 +184,7 @@ csq_order = ["transcript_ablation",
 ""]
 assert len(csq_order) == len(set(csq_order)) # No dupes!
 
-csq_order_dict = {csq:i for i,csq in enumerate(csq_order)}
+csq_order_dict = dict((csq, i) for i,csq in enumerate(csq_order))
 rev_csq_order_dict = dict(enumerate(csq_order))
 assert all(csq == rev_csq_order_dict[csq_order_dict[csq]] for csq in csq_order)
 
@@ -251,7 +251,7 @@ def annotation_severity(annotation):
 
 CHROMOSOMES = ['chr%s' % x for x in range(1, 23)]
 CHROMOSOMES.extend(['chrX', 'chrY', 'chrM'])
-CHROMOSOME_TO_CODE = { item: i+1 for i, item in enumerate(CHROMOSOMES) }
+CHROMOSOME_TO_CODE = dict((item, i + 1) for i, item in enumerate(CHROMOSOMES))
 
 
 def get_single_location(chrom, pos):

@@ -9,11 +9,20 @@
         <div class="row">
             <div class="col-md-12">
                 <form action="/awesomeproject">
+                    <label for="query">Project: </label>
                     <input type="submit" style="display: none;"/>
                     <input id="home-searchprojectbox-input" name="query" class="form-control input-lg awesomeprojectbar"
-                           type="text" placeholder="Select project"/>
+                           type="text" placeholder=""/>
                     <input type="submit" style="position: absolute; left: -9999px"/>
                 </form>
+                <script type="text/javascript">
+                    $(function() {
+                        $('.awesomeprojectbar').typeahead('val', ''); // Set initial value
+                        var evt = jQuery.Event('keydown');
+                        evt.keyCode = evt.which = 40;
+                        $('.awesomeprojectbar').trigger(evt); // Opens dropdown list
+                    });
+                </script>
             </div>
         </div>
         <div class="row" style="font-size: 16px;">

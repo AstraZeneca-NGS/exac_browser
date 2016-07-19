@@ -42,7 +42,6 @@ app = Flask(__name__)
 mail_on_500(app, ADMINISTRATORS)
 Compress(app)
 app.config['COMPRESS_DEBUG'] = True
-#app.config['SERVER_NAME'] = 0.0.0.0
 cache = SimpleCache(default_timeout=60*60*24)
 
 EXAC_FILES_DIRECTORY = '../exac_data/'
@@ -76,7 +75,7 @@ app.config.update(dict(
 ))
 
 GENE_CACHE_DIR = os.path.join(os.path.dirname(__file__), 'gene_cache')
-GENES_TO_CACHE = {l.strip('\n') for l in open(os.path.join(os.path.dirname(__file__), 'genes_to_cache.txt'))}
+# GENES_TO_CACHE = {l.strip('\n') for l in open(os.path.join(os.path.dirname(__file__), 'genes_to_cache.txt'))}
 
 def connect_db():
     """
@@ -570,12 +569,20 @@ def project_page(project_name, project_genome):
 
 
 @app.route('/<project_genome>/<project_name>/autocomplete/<query>')
-def awesome_autocomplete(query, project_genome):
+def awesome_autocomplete(query, project_name, project_genome):
     if not hasattr(g, 'autocomplete_strings'):
         g.autocomplete_strings = dict()
         for genome in 'hg19', 'hg38':
             g.autocomplete_strings[genome] = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), genome + '_autocomplete_strings.txt'))]
     suggestions = lookups.get_awesomebar_suggestions(g.autocomplete_strings[project_genome], query)
+    return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
+
+
+@app.route('/autocomplete_project/')
+def show_all_projects():
+    if not hasattr(g, 'autocomplete_projects'):
+        g.autocomplete_projects = [s.strip() for s in open(os.path.join(os.path.dirname(__file__), 'autocomplete_projects.txt'))]
+    suggestions = g.autocomplete_projects
     return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
 
 
@@ -710,10 +717,10 @@ def variant_page(project_name, project_genome, variant_str):
 
 @app.route('/<project_genome>/<project_name>/gene/<gene_id>')
 def gene_page(project_name, project_genome, gene_id):
-    if gene_id in GENES_TO_CACHE:
-        return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
-    else:
-        return get_gene_page_content(project_name, project_genome, gene_id)
+    # if gene_id in GENES_TO_CACHE:
+    #    return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
+    # else:
+    return get_gene_page_content(project_name, project_genome, gene_id)
 
 
 def get_gene_page_content(project_name, project_genome, gene_id):
@@ -994,11 +1001,12 @@ def apply_caching(response):
 
 if __name__ == "__main__":
     # adds Flask command line options for setting host, port, etc.
-    runner = Runner(app)
-    runner.run()
-    #manager = Manager(app)
-    #manager.run(host="0.0.0.0")
-    #manager.add_command("runserver", Server(
-    #use_debugger = True,
-    #use_reloader = True,
-    #host = '0.0.0.0') )
+    app.run(host='0.0.0.0')
+    # runner = Runner(app)
+    # runner.run()
+    # manager = Manager(app)
+    # manager.run(host="0.0.0.0")
+    # manager.add_command("runserver", Server(
+    # use_debugger = True,
+    # use_reloader = True,
+    # host = '0.0.0.0') )

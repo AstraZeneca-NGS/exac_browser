@@ -105,9 +105,9 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 ]
                 variant['site_quality'] = float(fields[5])
                 variant['filter'] = fields[6]
-                variant['vep_annotations'] = [{k.replace('.', '_'): v for k, v in annotation.iteritems()} for annotation in annotations]
+                variant['vep_annotations'] = [dict((k.replace('.', '_'), v) for k, v in annotation.iteritems()) for annotation in annotations]
 
-                variant['allele_freq'] = float(info_field['AF'])
+                variant['allele_freq'] = float(info_field['AF'].split(',')[i])
                 variant['allele_count'] = int(info_field['AC'].split(',')[i])
                 variant['allele_num'] = int(info_field['AN'])
 
@@ -143,7 +143,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 for vep_annotation, annotation in zip(variant['vep_annotations'], annotations):
                     gene = annotation['Gene_Name']
                     transcript = annotation['Feature_ID'].split('.')[0]
-                    if canonical_transcripts[gene] == transcript:
+                    if gene in canonical_transcripts and canonical_transcripts[gene] == transcript:
                         vep_annotation['CANONICAL'] = 'YES'
                     else:
                         vep_annotation['CANONICAL'] = 'NO'

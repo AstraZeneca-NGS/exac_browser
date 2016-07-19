@@ -83,12 +83,12 @@ def get_coverage_for_bases(db, project_name, genome, xstart, xstop=None):
     """
     if xstop is None:
         xstop = xstart
-    coverages = {
-        doc['xpos']: doc for doc in db[get_project_key(project_name, genome)].base_coverage.find(
+    coverages = dict(
+        (doc['xpos'], doc) for doc in db[get_project_key(project_name, genome)].base_coverage.find(
             {'xpos': {'$gte': xstart, '$lte': xstop}},
             fields={'_id': False}
         )
-    }
+    )
     ret = []
     for i in range(xstart, xstop+1):
         if i in coverages:
