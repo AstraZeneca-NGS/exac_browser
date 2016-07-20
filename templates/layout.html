@@ -90,14 +90,7 @@
                 <span class="icon-bar"></span>
             </button>
             <a class="navbar-brand" href="/" style="color: white; font-weight: bold; float: left; font-size: 15px;">ExAC Browser Beta</a>
-            <div class="col-xs-5" id="projectbar_form_container">
-                <form action="/awesome_project" class="navbar-form" role="search">
-                    <div class="form-group" id="projectbar-awesomebar">
-                        <input type="submit" style="display: none;"/>
-                        <input id="projectbar-searchbox-input" name="query" class="form-control awesomeprojectbar" type="text" placeholder="Project:{{ project_name }}"/>
-                        <input type="submit" style="position: absolute; left: -9999px"/>
-                    </div>
-                </form>
+            <div class="col-xs-5" id="navbar_form_container">
                 <form action="/{{ genome }}/{{ project_name }}/awesome" class="navbar-form" role="search">
                     <div class="form-group" id="navbar-awesomebar">
                         <input type="submit" style="display: none;"/>
