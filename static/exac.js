@@ -543,7 +543,7 @@ function get_af_bounds(data) {
 
 total_width = $(window).width() < 768 ? $(window).width() : $(window).width() * 10 / 12;
 
-gene_chart_margin = {top: 10, right: 10, bottom: 5, left: 35};
+gene_chart_margin = {top: 10, right: 10, bottom: 5, left: 45};
 if ($(window).width() < 768) {
     gene_chart_margin.left = 10;
 }

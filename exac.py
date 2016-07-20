@@ -888,9 +888,20 @@ def dbsnp_page(rsid, project_name, genome):
 
 @app.route('/not_found/<query>')
 @app.errorhandler(404)
-def not_found_page(query):
+def not_found_project_page(query):
     return render_template(
         'not_found.html',
+        query=query
+    ), 404
+
+
+@app.route('/<project_genome>/<project_name>/not_found/<query>')
+@app.errorhandler(404)
+def not_found_page(project_genome, project_name, query):
+    return render_template(
+        'not_found.html',
+        genome=project_genome,
+        project_name=project_name,
         query=query
     ), 404
 

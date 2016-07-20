@@ -119,19 +119,21 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                     variant['an_male'] = info_field['AN_MALE']
                 if 'AN_FEMALE' in info_field:
                     variant['an_female'] = info_field['AN_FEMALE']
-                samples_data = fields[-len(samples):]
                 variant['sample_names'] = samples
+                samples_data = fields[-len(samples):]
+                samples_data_info = fields[-len(samples) - 1].split(':')
                 variant['sample_data'] = []
                 for idx, sample in enumerate(samples):
                     fs = samples_data[idx].split(':')
                     if len(fs) < 6:
                         variant['sample_data'].append('')
                         continue
-
-                    freq, depth = fs[3], fs[5]
+                    freq_col = samples_data_info.index('AF')
+                    depth_col = samples_data_info.index('DP')
+                    freq, depth = fs[freq_col], fs[depth_col]
                     if freq.replace('.', '', 1).isdigit():
                         freq = str(float(freq) * 100) + '%'
-                    variant['sample_data'].append(freq + '\t' + depth)
+                    variant['sample_data'].append('AF:' + freq + ',DP:' + depth)
 
                 if variant['chrom'] in ('X', 'Y'):
                     # variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
