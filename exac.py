@@ -729,7 +729,7 @@ def get_gene_page_content(project_name, project_genome, gene_id):
         gene = lookups.get_gene(db, project_genome, gene_id)
         if gene is None:
             abort(404)
-        cache_key = 't-gene-{}'.format(gene_id)
+        cache_key = 't-gene-{}-{}-{}'.format(project_genome, project_name, gene_id)
         t = cache.get(cache_key)
         print 'Rendering %sgene: %s' % ('' if t is None else 'cached ', gene_id)
         if t is None:
@@ -770,7 +770,7 @@ def transcript_page(project_name, project_genome, transcript_id):
     try:
         transcript = lookups.get_transcript(db, project_genome, transcript_id)
 
-        cache_key = 't-transcript-{}'.format(transcript_id)
+        cache_key = 't-transcript-{}-{}-{}'.format(project_genome, project_name, transcript_id)
         t = cache.get(cache_key)
         print 'Rendering %stranscript: %s' % ('' if t is None else 'cached ', transcript_id)
         if t is None:
@@ -809,7 +809,7 @@ def region_page(project_name, project_genome, region_id):
     db = get_db()
     try:
         region = region_id.split('-')
-        cache_key = 't-region-{}'.format(region_id)
+        cache_key = 't-region-{}-{}-{}'.format(project_genome, project_name, region_id)
         t = cache.get(cache_key)
         print 'Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id)
         if t is None:

@@ -232,14 +232,14 @@ def get_genes_from_features(features_file):
         fields = line.strip('\n').split('\t')
         feature_type = fields[6]
 
-        if feature_type != 'Transcript':
+        if feature_type != 'Gene':
             continue
 
         chrom = fields[0]
         if chrom not in CHROMOSOME_TO_CODE:
             continue
-        start = int(fields[1]) + 1  # bed files are 0-indexed
-        stop = int(fields[2]) + 1
+        start = int(fields[1])
+        stop = int(fields[2])
         gene_id = fields[3]
         strand = fields[5]
         if gene_id in gene_ids:
@@ -276,8 +276,8 @@ def get_transcripts_from_features(features_file):
         chrom = fields[0]
         if chrom not in CHROMOSOME_TO_CODE:
             continue
-        start = int(fields[1]) + 1  # bed files are 0-indexed
-        stop = int(fields[2]) + 1
+        start = int(fields[1])
+        stop = int(fields[2])
         gene_id = fields[3]
         strand = fields[5]
         transcript_id = fields[8]
@@ -305,6 +305,8 @@ def get_exons_from_features(features_file):
             continue
         fields = line.strip('\n').split('\t')
         feature_type = fields[6]
+        if fields[7] == 'UTR':
+            feature_type = 'UTR'
 
         if feature_type not in ['Exon', 'CDS', 'UTR']:
             continue
@@ -312,8 +314,8 @@ def get_exons_from_features(features_file):
         chrom = fields[0]
         if chrom not in CHROMOSOME_TO_CODE:
             continue
-        start = int(fields[1]) + 1  # bed files are 0-indexed
-        stop = int(fields[2]) + 1
+        start = int(fields[1])
+        stop = int(fields[2])
         gene_id = fields[3]
         strand = fields[5]
         transcript_id = fields[8]
