@@ -18,6 +18,11 @@ def load_db():
 
 
 @manager.command
+def add_project(project_name, genome):
+    exac.add_project(project_name, genome)
+
+
+@manager.command
 def load_base_coverage(project_name, genome):
     exac.load_base_coverage(project_name, genome)
 
@@ -44,14 +49,14 @@ def load_dbsnp_file():
     exac.load_dbsnp_file()
 
 
-@manager.command
+'''@manager.command
 def load_constraint_information():
     exac.load_constraint_information()
 
 
 @manager.command
 def load_mnps():
-    exac.load_mnps()
+    exac.load_mnps()'''
 
 
 @manager.command

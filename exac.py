@@ -419,6 +419,23 @@ def load_db():
     print('Done!')
 
 
+def add_project(project_name, genome):
+    all_procs = []
+    full_db = get_db()
+    full_db.projects.insert({'name': project_name, 'genome': genome})
+    print(project_name + ' was added to the database')
+    for load_function in [load_variants_file, load_base_coverage]:
+        procs = load_function(project_name, genome)
+        all_procs.extend(procs)
+        print("Started %s processes to run %s" % (len(procs), load_function.__name__))
+
+    [p.join() for p in all_procs]
+    print('Done! Creating cache...')
+    create_cache()
+    precalculate_metrics(project_name=project_name, genome=genome)
+    print('Done!')
+
+
 def save_autocomplete_data(autocomplete_strings, output_fpath):
     f = open(os.path.join(os.path.dirname(__file__), output_fpath), 'w')
     for s in sorted(autocomplete_strings):

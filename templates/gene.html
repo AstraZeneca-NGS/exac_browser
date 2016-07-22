@@ -49,8 +49,8 @@
 {#                    <dd>{{ '%0.4g' % composite_lof_frequency }}</dd>#}
                     <dt class="hidden-xs">UCSC Browser</dt>
                     <dd class="hidden-xs">
-                        <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start - 1 }}-{{ gene.stop - 1 }}" target="_blank">
-                            {{ gene.chrom }}:{{ gene.start - 1 }}-{{ gene.stop - 1 }}
+                        <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start }}-{{ gene.stop }}" target="_blank">
+                            {{ gene.chrom }}:{{ gene.start }}-{{ gene.stop }}
                             <i class="fa fa-external-link"></i>
                         </a>
                     </dd>
@@ -86,7 +86,7 @@
                             </button>
                             <ul class="dropdown-menu" role="menu" aria-labelledby="external_ref_dropdown">
                                 <li role="presentation" class="visible-xs-block">
-                                    <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start - 1 }}-{{ gene.stop - 1 }}" target="_blank">
+                                    <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start }}-{{ gene.stop }}" target="_blank">
                                         UCSC Browser
                                         <i class="fa fa-external-link"></i>
                                     </a>
