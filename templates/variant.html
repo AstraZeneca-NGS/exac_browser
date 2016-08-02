@@ -420,29 +420,16 @@
 	    <div class="section_header">Read Data</div>
             <p />
             This interactive <a href="https://github.com/igvteam/igv.js">IGV.js</a> visualization shows reads that went into calling this variant.<br>
-            {% if read_viz['het']['n_available'] > 0 or read_viz['hom']['n_available'] >0 %}
-                <small><span class="label label-info">Note:</span> These are reassembled reads produced by
-                    <a href="https://www.broadinstitute.org/gatk/gatkdocs/org_broadinstitute_gatk_tools_walkers_haplotypecaller_HaplotypeCaller.php#--bamOutput">
-                        GATK HaplotypeCaller --bamOutput
-                    </a> so they accurately represent what HaplotypeCaller was seeing when it called this variant.</small>
-            {% endif %}
 
             <br><br>
 
 
 
-        {% if read_viz['het']['all_samples_missing'] or read_viz['hom']['all_samples_missing'] %}
+        {% if sample_names|length == 0 %}
             <center>
 
                     <h5 id='missing-data-note' style='margin-right:60%' >
-                        <span class="label label-info">Note:</span> &nbsp; Read data is not available for
-                        {% if read_viz['het']['n_available'] == 0 and read_viz['hom']['n_available'] == 0 %}
-                            this variant.
-                        {% elif read_viz['het']['all_samples_missing'] %}
-                            heterozygous samples.
-                        {% elif read_viz['hom']['all_samples_missing'] %}
-                            homozygous samples.
-                        {% endif %}
+                        <span class="label label-info">Note:</span> &nbsp; Read data is not available for this variant.
 
                     </h5>
 
@@ -458,11 +445,9 @@
             <div id="igv-container"></div>
             <br><br>
 
-            {% if read_viz['het']['n_available'] > 1 or read_viz['hom']['n_available'] > 1 %}
+            {% if sample_names|length > 1 %}
                 <center>
-                    <button class="btn btn-primary quality_full_site_buttons" style="disabled:true; width:130px; height: 32px;" id="load-more-het-button">Load +1 Het</button>
-                    &nbsp; &nbsp; &nbsp;
-                    <button class="btn btn-primary quality_full_site_buttons" style="disabled:true; width:130px; height: 32px;" id="load-more-hom-button">Load +1 Hom</button><br>
+                    <button class="btn btn-primary quality_full_site_buttons" style="disabled:true; width:130px; height: 32px;" id="load-more-button">Load +1 </button>
                 </center>
             {% endif %}
             <br>
@@ -482,17 +467,17 @@
 
             <script type="text/javascript">
 
-                var get_bam_track_config = function(read_viz_data, het_or_hom, i) {
+                var get_bam_track_config = function(sample_name) {
                     return {
                         type: 'bam',   
                         indexed: true,
                         alignmentShading: 'strand',
-                        url: '/read_viz/' + read_viz_data[het_or_hom]['urls'][i],
-                        name: het_or_hom + ' #'+(i+1),
+                        url: "{{ bam_url }}" + sample_name + ".bam",
+                        name: sample_name,
                         height: 300,
                         minHeight: 300,
                         autoHeight: false,
-                        readgroup: read_viz_data[het_or_hom]['readgroups'][i],  //readgroup: '1-157768000-G-C_hom10',
+                        readgroup: "{{ read_group }}" + sample_name,  //readgroup: '1-157768000-G-C_hom10',
                     };
                 };
  
@@ -518,23 +503,26 @@
                             //forward the filtered aligments to the original continuation
                             return continuation_original(alignments);
                         };
+                        return this.readFeatures_original(chr, min, max, continuationNew, task);
                     }
-
-                    return this.readFeatures_original(chr, min, max, continuationNew, task);
+                    else return this.readFeatures_original(chr, min, max, continuation, task);
                 };
 
                 //a dict of counts: n_expected_het, n_expected_hom, n_available_het, n_available_hom
                 var read_viz_data = {{ read_viz | tojson | safe }};
+                var sample_names = {{ sample_names | tojson | safe }};
+                console.log(sample_names);
 
                 //counts number of het/hom bam tracks displayed so far
-                var tracks_counter = {"het": 0, "hom": 0};
+                var tracks_counter = 0;
 
                 //initialize IGV tracks
                 var tracks = [];
                 tracks.push({
-                    url: '/read_viz/gencode.v19.sorted.bed',
-                    name: "gencode v19",
-                    displayMode: "SQUISHED"
+                    name: "genes",
+                    url: "{{ igv_genes_url }}",
+                    index: "{{ igv_genes_index }}",
+                    displayMode: "COLLAPSED"
                 });
                 //tracks.push({ url: '/read_viz/exome_calling_regions.v1.bed', name: "ExAC calling regions" });
                 //tracks.push({ url: '/read_viz/self_chain.sorted.bed',        name: "UCSC self chain" });
@@ -542,50 +530,40 @@
                 if( location.hash == '#all' ) {
                     //add all available tracks for het and hom and hide the 'load +1' buttons
                     // this mode was requested by @konrad and @eric
-                    $('#load-more-het-button').hide();
-                    $('#load-more-hom-button').hide();
+                    // $('#load-more-het-button').hide();
+                    $('#load-more-button').hide();
 
-                    ["het", "hom"].forEach(function (het_or_hom) {
-                        var n = read_viz_data[het_or_hom]['n_available'];
-                        for(var i = 0; i < n; i+=1) {
-                            tracks.push(get_bam_track_config(read_viz_data, het_or_hom, i)); 
-                            tracks_counter[het_or_hom] += 1;
-                        }
-                    });
+                    for(var i = 0; i < sample_names.length; i+=1) {
+                        tracks.push(get_bam_track_config(sample_names[i]));
+                        tracks_counter += 1;
+                    }
 
                 } else {
                     //add track #1 for het and hom (assuming they're available)
-                    ["het", "hom"].forEach(function (het_or_hom) {
-                        if (read_viz_data[het_or_hom]['n_available'] > 0) {
-                            tracks.push(get_bam_track_config(read_viz_data, het_or_hom, 0));
-                            tracks_counter[het_or_hom] += 1;
+                    if (sample_names.length > 0) {
+                        tracks.push(get_bam_track_config(sample_names[0]));
+                        tracks_counter += 1;
+                    }
+
+                    disable_load_one_more = tracks_counter >= sample_names.length;
+                    $('#load-more-button').prop('disabled', disable_load_one_more);
+
+                    var load_one_more = function () {
+                        if (tracks_counter < sample_names.length) {
+                            var i = tracks_counter;
+                            igv.browser.loadTrack(get_bam_track_config(sample_names[i]));
+                            tracks_counter += 1;
                         }
 
-                        disable_load_one_more = tracks_counter[het_or_hom] >= read_viz_data[het_or_hom]['n_available'];
-                        $('#load-more-' + het_or_hom + '-button').prop('disabled', disable_load_one_more);
-                    });
-
-                    var load_one_more = function (het_or_hom) {
-                        if (tracks_counter[het_or_hom] < read_viz_data[het_or_hom]['n_available']) {
-                            var i = tracks_counter[het_or_hom];
-                            console.log(read_viz_data[het_or_hom]['urls'][i]);
-                            console.log(read_viz_data[het_or_hom]['readgroups'][i]);
-                            igv.browser.loadTrack(get_bam_track_config(read_viz_data, het_or_hom, i));
-                            tracks_counter[het_or_hom] += 1;
-                        }
-
-                        if (tracks_counter[het_or_hom] >= read_viz_data[het_or_hom]['n_available']) {
-                            $('#load-more-' + het_or_hom + '-button').prop('disabled', true);
+                        if (tracks_counter >= sample_names.length) {
+                            $('#load-more-button').prop('disabled', true);
                         }
                     };
 
-                    $('#load-more-het-button').click(function () {
-                        load_one_more("het");
+                    $('#load-more-button').click(function () {
+                        load_one_more();
                     });
 
-                    $('#load-more-hom-button').click(function () {
-                        load_one_more("hom");
-                    });
                 }
 
                 //initialize IGV.js browser

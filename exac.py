@@ -70,8 +70,9 @@ app.config.update(dict(
     #   zcat b142_SNPChrPosOnRef_105.bcp.gz | awk '$3 != ""' | perl -pi -e 's/ +/\t/g' | sort -k2,2 -k3,3n | bgzip -c > dbsnp142.txt.bgz
     #   tabix -s 2 -b 3 -e 3 dbsnp142.txt.bgz
     DBSNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbsnp142.txt.bgz'),
-    
-    READ_VIZ_DIR="/mongo/readviz"
+
+    READ_VIZ_DIR=os.path.join(os.path.dirname(__file__), "../readviz"),
+    READ_VIZ_DIR_HTML="/readviz"
 ))
 
 GENE_CACHE_DIR = os.path.join(os.path.dirname(__file__), 'gene_cache')
@@ -677,6 +678,14 @@ def variant_page(project_name, project_genome, variant_str):
         any_covered = any([x['has_coverage'] for x in base_coverage])
         metrics = lookups.get_metrics(db, project_name, project_genome, variant)
 
+        igv_genes_path = ''
+        if project_genome == 'hg19':
+            igv_genes_path = '//igv.broadinstitute.org/annotations/hg19/genes/gencode.v18.collapsed.bed'
+            igv_genes_index = igv_genes_path + '.idx'
+        elif project_genome == 'hg38':
+            igv_genes_path = '//igv.broadinstitute.org/annotations/hg38/genes/gencode.v24.annotation.sorted.gtf.gz'
+            igv_genes_index = igv_genes_path + '.tbi'
+
         # check the appropriate sqlite db to get the *expected* number of
         # available bams and *actual* number of available bams for this variant
         sqlite_db_path = os.path.join(
@@ -713,8 +722,32 @@ def variant_page(project_name, project_genome, variant_str):
                 os.path.join('combined_bams', chrom, 'combined_chr%s_%03d.bam' % (chrom, pos % 1000))
                     for i in range(read_viz_dict[het_or_hom]['n_available'])
             ]
+        chrom = chrom.replace('chr', '')
+        bam_fpath = os.path.join(
+            app.config["READ_VIZ_DIR_HTML"],
+            "combined_bams",
+            project_genome, project_name,
+            "%s-" % chrom)
 
+        read_group = None
+        sample_names = []
+        if 'sample_names' in variant:
+            sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
+                            if variant['sample_data'][idx]]
 
+        if 'transcripts' in variant and variant['transcripts']:
+            for transcript_id in variant['transcripts']:
+                transcript_exons = lookups.get_exons_in_transcript(db, project_genome, transcript_id)
+                for idx, exon in enumerate(transcript_exons):
+                    if exon['start'] <= pos <= exon['stop']:
+                        start, end = exon['start'], exon['stop']
+                        genes_names = ','.join(variant['transcripts'])
+                        read_group = '{chrom}-{genes_names}-{idx}-'.format(**locals())
+                        break
+                if read_group:
+                    break
+        if not read_group:
+            read_group = '%(chrom)s-%(pos)s-%(ref)s-%(alt)s-' % locals()
         print 'Rendering variant: %s' % variant_str
         return render_template(
             'variant.html',
@@ -725,7 +758,12 @@ def variant_page(project_name, project_genome, variant_str):
             consequences=consequences,
             any_covered=any_covered,
             metrics=metrics,
+            igv_genes_url=igv_genes_path,
+            igv_genes_index=igv_genes_index,
             read_viz=read_viz_dict,
+            bam_url=bam_fpath,
+            sample_names=sample_names,
+            read_group=read_group
         )
     except Exception:
         print 'Failed on variant:', variant_str, ';Error=', traceback.format_exc()
@@ -983,13 +1021,13 @@ http://omim.org/entry/%(omim_accession)s''' % gene
         return "Search types other than gene transcript not yet supported"
 
 
-@app.route('/read_viz/<path:path>')
+@app.route('/readviz/<path:path>')
 def read_viz_files(path):
     full_path = os.path.abspath(os.path.join(app.config["READ_VIZ_DIR"], path))
 
     # security check - only files under READ_VIZ_DIR should be accsessible
-    if not full_path.startswith(app.config["READ_VIZ_DIR"]):
-        return "Invalid path: %s" % path
+    # if not full_path.startswith(app.config["READ_VIZ_DIR"]):
+    #     return "Invalid path: %s" % path
 
     logging.info("path: " + full_path)
 

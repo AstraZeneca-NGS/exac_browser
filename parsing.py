@@ -244,9 +244,9 @@ def get_genes_from_features(features_file):
         stop = int(fields[2])
         gene_id = fields[3]
         strand = fields[5]
-        if gene_id in gene_ids:
+        if (gene_id, chrom) in gene_ids:
             continue
-        gene_ids.add(gene_id)
+        gene_ids.add((gene_id, chrom))
         gene = {
             'gene_id': gene_id,
             'gene_name': gene_id,
