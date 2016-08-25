@@ -52,9 +52,8 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
         try:
             line = line.strip('\n')
             if line.startswith('##INFO=<ID=ANN'):
-                ann_field_names = line.split('Format: ')[-1].strip('">').split('|')
+                ann_field_names = line.split(': ')[-1].strip('">').strip("'").split('|')
                 ann_field_names = [f.strip() for f in ann_field_names]
-                ann_field_names[0] = ann_field_names[0].split('\'')[1]
             if line.startswith('##INFO=<ID=DP_HIST'):
                 dp_mids = map(float, line.split('Mids: ')[-1].strip('">').split('|'))
             if line.startswith('##INFO=<ID=GQ_HIST'):

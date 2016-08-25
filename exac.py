@@ -59,8 +59,8 @@ app.config.update(dict(
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
-    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict.%s.vcf.gz'),
-    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'coverage.*.txt.gz'),
+    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
+    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
@@ -71,8 +71,8 @@ app.config.update(dict(
     #   tabix -s 2 -b 3 -e 3 dbsnp142.txt.bgz
     DBSNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbsnp142.txt.bgz'),
 
-    READ_VIZ_DIR=os.path.join(os.path.dirname(__file__), "../readviz"),
-    READ_VIZ_DIR_HTML="/readviz"
+    READ_VIZ_DIR=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'combined_bams', '%s'),
+    READ_VIZ_DIR_HTML=os.path.join('/%s', 'combined_bams', '%s'),
 ))
 
 GENE_CACHE_DIR = os.path.join(os.path.dirname(__file__), 'gene_cache')
@@ -187,7 +187,7 @@ def load_variants_file(project_name=None, genome=None):
         full_db.projects.drop()
         for genome in 'hg19', 'hg38':
             sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, '*'))
-            project_names = [basename(vcf).split('.')[1] for vcf in sites_vcfs]
+            project_names = [basename(vcf).split('.')[0] for vcf in sites_vcfs]
             if project_names:
                 full_db.projects.insert({'name': project_name, 'genome': genome} for project_name in project_names)
         projects = get_projects(full_db)
@@ -494,7 +494,7 @@ def precalculate_metrics(project_name=None, genome=None):
         binned_metrics = defaultdict(list)
         progress = 0
         start_time = time.time()
-        for variant in db.variants.find(fields=['quality_metrics', 'site_quality', 'allele_num', 'allele_count']):
+        for variant in db.variants.find(projection=['quality_metrics', 'site_quality', 'allele_num', 'allele_count']):
             for metric, value in variant['quality_metrics'].iteritems():
                 metrics[metric].append(float(value))
             qual = float(variant['site_quality'])
@@ -724,9 +724,7 @@ def variant_page(project_name, project_genome, variant_str):
             ]
         chrom = chrom.replace('chr', '')
         bam_fpath = os.path.join(
-            app.config["READ_VIZ_DIR_HTML"],
-            "combined_bams",
-            project_genome, project_name,
+            app.config["READ_VIZ_DIR_HTML"] % (project_genome, project_name),
             "%s-" % chrom)
 
         read_group = None
@@ -1021,9 +1019,9 @@ http://omim.org/entry/%(omim_accession)s''' % gene
         return "Search types other than gene transcript not yet supported"
 
 
-@app.route('/readviz/<path:path>')
-def read_viz_files(path):
-    full_path = os.path.abspath(os.path.join(app.config["READ_VIZ_DIR"], path))
+@app.route('/<project_genome>/combined_bams/<project_name>/<bam>')
+def read_viz_files(project_genome, project_name, bam):
+    full_path = os.path.abspath(os.path.join(app.config["READ_VIZ_DIR"] % (project_genome, project_name), bam))
 
     # security check - only files under READ_VIZ_DIR should be accsessible
     # if not full_path.startswith(app.config["READ_VIZ_DIR"]):
@@ -1034,7 +1032,7 @@ def read_viz_files(path):
     # handle igv.js Range header which it uses to request a subset of a .bam
     range_header = request.headers.get('Range', None)
     if not range_header:
-        return send_from_directory(app.config["READ_VIZ_DIR"], path)
+        return send_from_directory(app.config["READ_VIZ_DIR"] % (project_genome, project_name), bam)
 
     m = re.search('(\d+)-(\d*)', range_header)
     if not m:
