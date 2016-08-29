@@ -420,21 +420,24 @@ def load_db():
     print('Done!')
 
 
-def delete_project(project_name, genome):
+def delete_project(project_name, genome, silent=False):
     full_db = get_db()
     full_db[get_project_key(project_name, genome)].drop()
     full_db.projects.remove({'name': project_name, 'genome': genome})
-    print(project_name + ' was deleted from the database')
-    print('Refreshing cache...')
+    if not silent:
+        print(project_name + ' was deleted from the database')
+        print('Refreshing cache...')
     create_cache()
-    print('Done!')
+    if not silent:
+        print('Done!')
 
 
 def add_project(project_name, genome):
+    delete_project(project_name, genome, silent=True)
     all_procs = []
     full_db = get_db()
     full_db.projects.insert({'name': project_name, 'genome': genome})
-    print(project_name + ' was added to the database')
+    print('Adding ' + project_name + ' to the database')
     for load_function in [load_variants_file, load_base_coverage]:
         procs = load_function(project_name, genome)
         all_procs.extend(procs)

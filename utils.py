@@ -264,7 +264,8 @@ def get_single_location(chrom, pos):
 
     Borrowed from xbrowse
     """
-    return CHROMOSOME_TO_CODE[chrom] * int(1e9) + pos
+    if chrom in CHROMOSOME_TO_CODE:
+        return CHROMOSOME_TO_CODE[chrom] * int(1e9) + pos
 
 
 def get_xpos(chrom, pos):
