@@ -23,6 +23,11 @@ def add_project(project_name, genome):
 
 
 @manager.command
+def delete_project(project_name, genome):
+    exac.delete_project(project_name, genome)
+
+
+@manager.command
 def load_base_coverage(project_name, genome):
     exac.load_base_coverage(project_name, genome)
 

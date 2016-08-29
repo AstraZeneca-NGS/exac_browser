@@ -420,6 +420,16 @@ def load_db():
     print('Done!')
 
 
+def delete_project(project_name, genome):
+    full_db = get_db()
+    full_db[get_project_key(project_name, genome)].drop()
+    full_db.projects.remove({'name': project_name, 'genome': genome})
+    print(project_name + ' was deleted from the database')
+    print('Refreshing cache...')
+    create_cache()
+    print('Done!')
+
+
 def add_project(project_name, genome):
     all_procs = []
     full_db = get_db()
