@@ -54,9 +54,24 @@
             });
 
             var projects = new Bloodhound({
-              datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
-              queryTokenizer: Bloodhound.tokenizers.whitespace,
-              remote: '/autocomplete_project/%QUERY'
+                datumTokenizer: function(d) {
+                    var tokens = Bloodhound.tokenizers.whitespace(d.value);
+                        $.each(tokens, function(k, value){
+                            var i = 0;
+                            while(i + 1 < value.length ){
+                                tokens.push(value.substr(i, value.length));
+                                i++;
+                            }
+                        });
+                        return tokens;
+                    },
+                queryTokenizer: Bloodhound.tokenizers.whitespace,
+                limit: 1000,
+                remote: '/autocomplete_project/%QUERY',
+                prefetch: {
+                    url: '/autocomplete_project/',
+                    ttl: 10000
+                }
             });
 
             projects.initialize();

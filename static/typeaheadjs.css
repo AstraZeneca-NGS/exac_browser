@@ -18,6 +18,11 @@
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
   background-clip: padding-box;
 }
+.tt-suggestions {
+  min-height: 50px;
+  max-height: 350px;
+  overflow-y: auto;
+}
 .tt-suggestion > p {
   display: block;
   padding: 3px 20px;
