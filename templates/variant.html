@@ -491,6 +491,7 @@
                     //if a readgroup was passed to the BamTrack constructor, filter reads without this read group.
                     if(this.config.readgroup) {
                         var readgroup = this.config.readgroup;
+                        console.log(readgroup)
                         var continuation_original = continuation;
                         var continuationNew = function(alignments) {
                             //filter the alignments by read group
@@ -522,7 +523,7 @@
                     name: "genes",
                     url: "{{ igv_genes_url }}",
                     index: "{{ igv_genes_index }}",
-                    displayMode: "COLLAPSED"
+                    displayMode: "SQUISHED"
                 });
                 //tracks.push({ url: '/read_viz/exome_calling_regions.v1.bed', name: "ExAC calling regions" });
                 //tracks.push({ url: '/read_viz/self_chain.sorted.bed',        name: "UCSC self chain" });
