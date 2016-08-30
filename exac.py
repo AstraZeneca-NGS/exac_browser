@@ -933,7 +933,7 @@ def region_page(project_name, project_genome, region_id):
                 start=start,
                 stop=stop,
                 coverage=coverage_array,
-                coverage_оыщт=JSONEncoder().encode(coverage_array),
+                coverage_json=JSONEncoder().encode(coverage_array),
                 csq_order=csq_order,
                 csq_order_json=JSONEncoder().encode(csq_order)
             )
