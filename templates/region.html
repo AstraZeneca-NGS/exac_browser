@@ -1,12 +1,10 @@
 {% extends "layout.html" %}
 {% block body %}
     <script type="text/javascript">
-        window.coverage_stats = {{ coverage|tojson|safe }};
-        window.genes = {{ genes_in_region|tojson|safe }};
-        window.variants = {{ variants_in_region|tojson|safe }};
+        window.coverage_stats = {{ coverage_json|safe }};
+        window.genes = {{ genes_in_region_json|safe }}
+        window.variants = {{ variants_in_region_json|safe }};
         window.table_variants = variants;
-        window.start = {{ start|tojson|safe }};
-        window.stop = {{ stop|tojson|safe }};
 
         {% if genes_in_region and stop != None %}
         $(document).ready(function() {

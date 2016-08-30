@@ -765,10 +765,15 @@ def variant_page(project_name, project_genome, variant_str):
             project_name=project_name,
             genome=project_genome,
             variant=variant,
+            variant_json=JSONEncoder().encode(variant),
             base_coverage=base_coverage,
+            base_coverage_json=JSONEncoder().encode(base_coverage),
             consequences=consequences,
+            consequences_json=JSONEncoder().encode(consequences),
             any_covered=any_covered,
+            any_covered_json=JSONEncoder().encode(any_covered),
             metrics=metrics,
+            metrics_json=JSONEncoder().encode(metrics),
             igv_genes_url=igv_genes_path,
             igv_genes_index=igv_genes_index,
             read_viz=read_viz_dict,
@@ -815,13 +820,20 @@ def get_gene_page_content(project_name, project_genome, gene_id):
                 project_name=project_name,
                 genome=project_genome,
                 gene=gene,
+                gene_json=JSONEncoder().encode(gene),
                 transcript=transcript,
+                transcript_json=JSONEncoder().encode(transcript),
                 variants_in_gene=variants_in_gene,
+                variants_in_gene_json=JSONEncoder().encode(variants_in_gene),
                 variants_in_transcript=variants_in_transcript,
+                variants_in_transcript_json=JSONEncoder().encode(variants_in_transcript),
                 transcripts_in_gene=transcripts_in_gene,
+                transcripts_in_gene_json=JSONEncoder().encode(transcripts_in_gene),
                 coverage_stats=coverage_stats,
+                coverage_stats_json=JSONEncoder().encode(coverage_stats),
                 constraint=constraint_info,
                 csq_order=csq_order,
+                csq_order_json=JSONEncoder().encode(csq_order)
             )
             cache.set(cache_key, t)
         return t
@@ -854,14 +866,15 @@ def transcript_page(project_name, project_genome, transcript_id):
                 project_name=project_name,
                 genome=project_genome,
                 transcript=transcript,
-                transcript_json=json.dumps(transcript),
+                transcript_json=JSONEncoder().encode(transcript),
                 variants_in_transcript=variants_in_transcript,
-                variants_in_transcript_json=json.dumps(variants_in_transcript),
+                variants_in_transcript_json=JSONEncoder().encode(variants_in_transcript),
                 coverage_stats=coverage_stats,
-                coverage_stats_json=json.dumps(coverage_stats),
+                coverage_stats_json=JSONEncoder().encode(coverage_stats),
                 gene=gene,
-                gene_json=json.dumps(gene),
+                gene_json=JSONEncoder().encode(gene),
                 csq_order=csq_order,
+                csq_order_json=JSONEncoder().encode(csq_order)
             )
             cache.set(cache_key, t)
         return t
@@ -898,6 +911,7 @@ def region_page(project_name, project_genome, region_id):
                     stop=stop,
                     coverage=None,
                     csq_order=csq_order,
+                    csq_order_json=JSONEncoder().encode(csq_order)
                 )
             if start == stop:
                 start -= 20
@@ -912,12 +926,16 @@ def region_page(project_name, project_genome, region_id):
                 project_name=project_name,
                 genome=project_genome,
                 genes_in_region=genes_in_region,
+                genes_in_region_json=JSONEncoder().encode(genes_in_region),
                 variants_in_region=variants_in_region,
+                variants_in_region_json=JSONEncoder().encode(variants_in_region),
                 chrom=chrom,
                 start=start,
                 stop=stop,
                 coverage=coverage_array,
+                coverage_оыщт=JSONEncoder().encode(coverage_array),
                 csq_order=csq_order,
+                csq_order_json=JSONEncoder().encode(csq_order)
             )
             cache.set(cache_key, t)
         return t
@@ -946,6 +964,7 @@ def dbsnp_page(rsid, project_name, genome):
             coverage=None,
             genes_in_region=None,
             csq_order=csq_order,
+            csq_order_json=JSONEncoder().encode(csq_order)
         )
     except Exception, e:
         print 'Failed on rsid:', rsid, ';Error=', traceback.format_exc()

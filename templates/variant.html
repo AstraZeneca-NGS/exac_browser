@@ -12,11 +12,11 @@
 {% block body %}
     <!-- Render context vars in JS here -->
     <script type="text/javascript">
-        window.variant = {{ variant|tojson|safe }};
-        window.base_coverage = {{ base_coverage|tojson|safe }};
-        window.any_covered = {{ any_covered|tojson|safe }};
-        window.consequence = {{ consequences|tojson|safe }};
-        window.metrics = {{ metrics|tojson|safe }};
+        window.variant = {{ variant_json|safe }};
+        window.base_coverage = {{ base_coverage_json|safe }};
+        window.any_covered = {{ any_covered_json|safe }};
+        window.consequence = {{ consequences_json|safe }};
+        window.metrics = {{ metrics_json|safe }};
 
         $(document).ready(function() {
             draw_region_coverage(window.base_coverage, 'mean', window.variant.ref);
