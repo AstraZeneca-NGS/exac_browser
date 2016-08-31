@@ -752,8 +752,8 @@ def variant_page(project_name, project_genome, variant_str):
                 for idx, exon in enumerate(transcript_exons):
                     if exon['start'] <= pos <= exon['stop']:
                         start, end = exon['start'], exon['stop']
-                        genes_names = ','.join(variant['transcripts'])
-                        read_group = '{chrom}-{genes_names}-{idx}-'.format(**locals())
+                        transcript = sorted(variant['transcripts'])[0]
+                        read_group = '{chrom}-{transcript}-{idx}-'.format(**locals())
                         break
                 if read_group:
                     break
