@@ -55,7 +55,7 @@ app.config.update(dict(
     DB_NAME='exac', 
     DEBUG=True,
     SECRET_KEY='development key',
-    LOAD_DB_PARALLEL_PROCESSES = 1,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
+    LOAD_DB_PARALLEL_PROCESSES = 8,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
@@ -207,7 +207,8 @@ def load_variants_file(project_name=None, genome=None):
 
         sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, project_name))
         if len(sites_vcfs) == 0:
-            raise IOError("No vcf file found")
+            print("No vcf file found for " + project_name)
+            continue
         elif len(sites_vcfs) > 1:
             raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
 
