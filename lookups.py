@@ -44,7 +44,7 @@ def get_variant(db, project_name, project_genome, xpos, ref, alt):
 
 def get_project_by_project_name(db, project_name):
     projects = list(db.projects.find({'name': project_name}))
-    return projects[0]
+    return projects[0] if projects else None
 
 
 def get_variants_by_rsid(db, project_name, genome, rsid):

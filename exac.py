@@ -55,7 +55,7 @@ app.config.update(dict(
     DB_NAME='exac', 
     DEBUG=True,
     SECRET_KEY='development key',
-    LOAD_DB_PARALLEL_PROCESSES = 8,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
+    LOAD_DB_PARALLEL_PROCESSES = 12,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
@@ -573,6 +573,13 @@ def get_db():
     return g.db_conn
 
 
+def check_project_exists(project_name):
+    full_db = get_db()
+    project = lookups.get_project_by_project_name(full_db, project_name)
+    if not project:
+        abort(404)
+
+
 # @app.teardown_appcontext
 # def close_db(error):
 #     """Closes the database again at the end of the request."""
@@ -592,6 +599,7 @@ def homepage():
 
 @app.route('/<project_genome>/<project_name>/')
 def project_page(project_name, project_genome):
+    check_project_exists(project_name)
     t = render_template(
         'project_page.html',
         project_name=project_name,
@@ -664,6 +672,7 @@ def awesome_project():
 
 @app.route('/<project_genome>/<project_name>/variant/<variant_str>')
 def variant_page(project_name, project_genome, variant_str):
+    check_project_exists(project_name)
     db = get_db()
     try:
         chrom, pos, ref, alt = variant_str.split('-')
@@ -789,6 +798,7 @@ def variant_page(project_name, project_genome, variant_str):
 
 @app.route('/<project_genome>/<project_name>/gene/<gene_id>')
 def gene_page(project_name, project_genome, gene_id):
+    check_project_exists(project_name)
     # if gene_id in GENES_TO_CACHE:
     #    return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
     # else:
@@ -845,6 +855,7 @@ def get_gene_page_content(project_name, project_genome, gene_id):
 
 @app.route('/<project_genome>/<project_name>/transcript/<transcript_id>')
 def transcript_page(project_name, project_genome, transcript_id):
+    check_project_exists(project_name)
     db = get_db()
     try:
         transcript = lookups.get_transcript(db, project_genome, transcript_id)
@@ -1098,7 +1109,7 @@ def apply_caching(response):
 
 if __name__ == "__main__":
     # adds Flask command line options for setting host, port, etc.
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True, debug=True, extra_files='autocomplete_projects.txt')
     # runner = Runner(app)
     # runner.run()
     # manager = Manager(app)
