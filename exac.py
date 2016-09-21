@@ -60,7 +60,8 @@ app.config.update(dict(
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
     SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
-    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*.txt.gz'),
+    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'chr*.txt.gz'),
+    FILTERED_REGIONS_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'filtered_regions*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
@@ -224,8 +225,39 @@ def load_variants_file(project_name=None, genome=None):
             p.start()
             procs.append(p)
     return procs
-
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
+
+
+def load_evaluate_capture_data(project_name=None, genome=None):
+    def load_regions(project_files, i, n, db):
+        regions_generator = parse_tabix_file_subset(project_files, i, n, get_regions)
+        try:
+            db.filtered_regions.insert(regions_generator, w=0)
+        except pymongo.errors.InvalidOperation:
+            pass  # handle error when variant_generator is empty
+
+    start_time = time.time()
+    full_db = get_db()
+    if project_name:
+        projects = [get_one_project(full_db, project_name, genome)]
+    else:
+        projects = get_projects(full_db)
+    procs = []
+    for project_name, genome in projects:
+        db = full_db[get_project_key(project_name, genome)]
+        db.filtered_regions.drop()
+        db.filtered_regions.ensure_index('start')
+
+        regions_files = glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name))
+        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+        max_procs = max(1, num_procs / len(projects))
+        for i in range(max_procs):
+            p = Process(target=load_regions, args=(regions_files, i, num_procs, db))
+            p.start()
+            procs.append(p)
+
+    print 'Done loading capture evaluating info. Took %s seconds' % int(time.time() - start_time)
+
 
 '''
 def load_constraint_information():
@@ -439,7 +471,7 @@ def add_project(project_name, genome):
     full_db = get_db()
     full_db.projects.insert({'name': project_name, 'genome': genome})
     print('Adding ' + project_name + ' to the database')
-    for load_function in [load_variants_file, load_base_coverage]:
+    for load_function in [load_variants_file, load_base_coverage, load_evaluate_capture_data]:
         procs = load_function(project_name, genome)
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -600,10 +632,16 @@ def homepage():
 @app.route('/<project_genome>/<project_name>/')
 def project_page(project_name, project_genome):
     check_project_exists(project_name)
+    depth_thresholds = [10, 20, 25, 50, 100, 250]
+    db = get_db()
+    filtered_regions = lookups.get_filtered_regions_in_project(db, project_name, project_genome)
     t = render_template(
         'project_page.html',
         project_name=project_name,
-        genome=project_genome
+        genome=project_genome,
+        filtered_regions=filtered_regions,
+        filtered_regions_json=JSONEncoder().encode(filtered_regions),
+        depth_thresholds=depth_thresholds,
     )
     return t
 

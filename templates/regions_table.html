@@ -1,0 +1,30 @@
+{% block regions_table %}
+{% include "regions_table_template.html" %}
+<script>
+    $(document).ready(function() {
+
+        $("#regions_loading").hide();
+        $("#regions_table_container").show();
+        window.regions_template = _.template($('#regions-table-template').html());
+        $('#regions_table_container').html(regions_template({table_regions: table_regions}));
+        $('#pager').hide();
+        $('input[type=radio][name=depth_thresholds]').change(function() {
+            $('[depth_threshold]').hide();
+            $('[depth_threshold=' + this.value + ']').show();
+        });
+        $('input[name=depth_thresholds][value=10]').prop("checked", true);
+
+        $("#regions_table").tablesorter({
+        });
+
+        $("#export_to_csv").on('click', function (event) {
+            var output_name = window.page_name === undefined ? 'export' : window.page_name;
+            var timestamp = date_format(new Date());
+            exportTableToCSV.apply(this, [$('#regions_table'), 'exac_' + output_name + '_' + timestamp + '.csv']);
+        });
+    });
+</script>
+<div id="regions_loading">Loading filtered regions...</div>
+<div id="regions_table_container" style="display: none;"></div>
+<div id="regions_table_empty" style="display: none;"></div>
+{% endblock %}

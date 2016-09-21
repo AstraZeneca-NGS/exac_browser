@@ -75,6 +75,11 @@ def get_variants_from_dbsnp(db, project_name, genome, rsid):
     return []
 
 
+def get_filtered_regions_in_project(db, project_name, genome):
+    regions = db[get_project_key(project_name, genome)].filtered_regions.find()
+    return list(regions)
+
+
 def get_coverage_for_bases(db, project_name, genome, xstart, xstop=None):
     """
     Get the coverage for the list of bases given by xstart->xstop, inclusive

@@ -1,0 +1,32 @@
+<script type="text/template" id="regions-table-template">
+<span>
+    <a class="btn btn-success hidden-xs" id="export_to_csv">Export table to CSV</a>
+</span>
+<table id="regions_table" class="tablesorter">
+    <thead>
+        <tr>
+            <th class='hidden-xs'>Chrom</th>
+            <th class='hidden-xs'>Start</th>
+            <th class='hidden-xs'>End</th>
+            <th class="hidden-xs">Gene</th>
+            <th class="hidden-xs">Depth&lt;Nx</th>
+            <th class="hidden-xs">SamplesSharingSameFeature</th>
+            <th class="hidden-xs">Annotation</th>
+        </tr>
+    </thead>
+    <tbody>
+    <% _.each(table_regions, function(region) { %>
+        <tr class="table_region" id="region_<%= region.region_id %>"
+            depth_threshold="<%= region.depth_threshold %>" samples="<%= region.samples %>" depth="<%= region.depth %>" gene="<%= region.gene %>">
+            <td class='hidden-xs'> <%= region.chrom %></td>
+            <td class='hidden-xs'> <%= region.start %></td>
+            <td class='hidden-xs'> <%= region.stop %></td>
+            <td class="hidden-xs"><%= region.gene %></td>
+            <td class="hidden-xs"> <%= region.depth %></td>
+            <td class="hidden-xs"> <%= region.samples %></td>
+            <td class="hidden-xs"> <%= region.annotation %></td>
+        </tr>
+    <% }); %>
+    </tbody>
+</table>
+</script>

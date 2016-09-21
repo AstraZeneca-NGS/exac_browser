@@ -170,6 +170,36 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
             break
 
 
+def get_regions(regions_file, canonical_transcripts):
+    float_header_fields = ['size', 'gene', 'depth', 'samples', 'annotation']
+    depth_threshold = 0
+    for line in regions_file:
+        if line.startswith('#'):
+            if 'Coverage threshold Nx is ' in line:
+                threshold_pattern = 'Coverage threshold Nx is (\d+)x'
+                depth_threshold = re.findall(threshold_pattern, line)[0]
+            continue
+        fields = line.strip('\n').split('\t')
+        chrom = fields[0]
+        if chrom not in CHROMOSOME_TO_CODE:
+            continue
+        start = int(fields[1])
+        stop = int(fields[2])
+        gene = fields[4]
+        if not gene or gene == '.' or gene == 'None':
+            continue
+        d = {
+            'chrom': chrom,
+            'start': start,
+            'stop': stop,
+            'depth_threshold': depth_threshold
+        }
+        for i, k in enumerate(float_header_fields):
+            if i + 3 < len(float_header_fields):
+                d[k] = float(fields[i+3])
+        yield d
+
+
 def get_mnp_data(mnp_file):
     header = mnp_file.readline().strip().split('\t')
     for line in mnp_file:

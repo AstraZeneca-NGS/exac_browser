@@ -3,6 +3,9 @@
     <script>
         $('#navbar_form_container').hide();
     </script>
+    <script type="text/javascript">
+        window.table_regions = {{ filtered_regions_json|safe }};
+    </script>
     <div class="container">
         <h1 id="home-title">ExAC Browser (Beta) | {{ project_name }}</h1>
         <div class="row">
@@ -23,5 +26,16 @@
                 </div>
             </div>
         </div>
+        {% if filtered_regions %}
+            <div class="row">
+            Show regions with coverage less than:
+                {% for depth in depth_thresholds %}
+                    <input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x
+                {% endfor %}
+            </div>
+            <div class="row">
+                    {% include 'regions_table.html' %}
+            </div>
+        {% endif %}
     </div>
 {% endblock %}
