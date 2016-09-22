@@ -190,8 +190,8 @@ def get_regions(regions_file, canonical_transcripts):
             continue
         d = {
             'chrom': chrom,
-            'start': start,
-            'stop': stop,
+            'start': format_value(start, is_html=True, human_readable=True),
+            'stop': format_value(start, is_html=True, human_readable=True),
             'depth_threshold': depth_threshold
         }
         for i, k in enumerate(float_header_fields):

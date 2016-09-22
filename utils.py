@@ -316,3 +316,52 @@ def get_minimal_representation(pos, ref, alt):
             ref = ref[1:]
             pos += 1
         return pos, ref, alt
+
+
+def format_value(value, unit='', human_readable=True, is_html=False):
+    if value is None:
+        return ''
+
+    unit_str = unit
+    if unit and is_html:
+        unit_str = '<span class=\'rhs\'>&nbsp;</span>' + unit
+
+    if isinstance(value, basestring):
+        if human_readable:
+            return '{value}{unit_str}'.format(**locals())
+        else:
+            return value
+
+    elif isinstance(value, int):
+        if value == 0:
+            return '0'
+        if human_readable:
+            if value <= 9999:
+                return str(value)
+            else:
+                v = '{value:,}{unit_str}'.format(**locals())
+                if is_html:
+                    v = v.replace(',', '<span class=\'hs\'></span>')
+                return v
+        else:
+            return str(value)
+
+    elif isinstance(value, float):
+        if value == 0.0:
+            return '0'
+        if human_readable:
+            if unit == '%':
+                value *= 100
+            precision = 2
+            for i in range(10, 1, -1):
+                if abs(value) < 1. / (10 ** i):
+                    precision = i + 1
+                    break
+            return '{value:.{precision}f}{unit_str}'.format(**locals())
+        else:
+            return str(value)
+
+    if isinstance(value, list):
+        return ', '.join(format_value(v, unit, human_readable, is_html) for v in value)
+
+    return '.'

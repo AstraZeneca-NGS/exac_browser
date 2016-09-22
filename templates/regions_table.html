@@ -11,8 +11,12 @@
         $('input[type=radio][name=depth_thresholds]').change(function() {
             $('[depth_threshold]').hide();
             $('[depth_threshold=' + this.value + ']').show();
+            $('#depth_col').html('Depth<' + this.value + 'x');
         });
         $('input[name=depth_thresholds][value=10]').prop("checked", true);
+        $('[depth_threshold]').hide();
+        $('[depth_threshold=10]').show();
+        $('#depth_col').html('Depth<10x');
 
         $("#regions_table").tablesorter({
         });

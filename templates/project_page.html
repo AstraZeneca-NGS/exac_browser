@@ -30,7 +30,7 @@
             <div class="row">
             Show regions with coverage less than:
                 {% for depth in depth_thresholds %}
-                    <input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x
+                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>
                 {% endfor %}
             </div>
             <div class="row">

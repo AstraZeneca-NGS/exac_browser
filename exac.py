@@ -632,9 +632,9 @@ def homepage():
 @app.route('/<project_genome>/<project_name>/')
 def project_page(project_name, project_genome):
     check_project_exists(project_name)
-    depth_thresholds = [10, 20, 25, 50, 100, 250]
     db = get_db()
     filtered_regions = lookups.get_filtered_regions_in_project(db, project_name, project_genome)
+    depth_thresholds = sorted(list(set([r['depth_threshold'] for r in filtered_regions])))
     t = render_template(
         'project_page.html',
         project_name=project_name,
