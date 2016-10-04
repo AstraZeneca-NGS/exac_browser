@@ -921,7 +921,9 @@ def get_gene_page_content(project_name, project_genome, gene_id):
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
                 cnvs = cnvs_in_transcript,
+                cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
+                cnvgenes_json=JSONEncoder().encode(cnvs_per_gene),
                 constraint=constraint_info
             )
             cache.set(cache_key, t, timeout=1000*60)
@@ -963,11 +965,11 @@ def transcript_page(project_name, project_genome, transcript_id):
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
                 gene=gene,
-                gene_json=json.dumps(gene),
+                gene_json=JSONEncoder().encode(gene),
                 cnvs = cnvs_in_transcript,
-                cnvs_json=json.dumps(cnvs_in_transcript),
+                cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
-                cnvgenes_json=json.dumps(cnvs_per_gene)
+                cnvgenes_json=JSONEncoder().encode(cnvs_per_gene)
             )
             cache.set(cache_key, t, timeout=1000*60)
         print 'Rendering transcript: %s' % transcript_id
