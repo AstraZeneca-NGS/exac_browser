@@ -25,6 +25,22 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
+def get_projects(full_db):
+    projects = full_db.projects.find()
+    projects = [(project['name'], project['genome']) for project in projects]
+    return projects
+
+
+def get_one_project(full_db, project_name, genome):
+    if not genome:
+        print('Error! Please specify project name and genome')
+        sys.exit(2)
+    project = (project_name, genome)
+    if not full_db.projects.find({'name': project_name, 'genome': genome}):
+        full_db.projects.insert({'name': project_name, 'genome': genome})
+    return project
+
+
 def get_project_key(project_name, genome):
     return project_name + '_' + genome
 

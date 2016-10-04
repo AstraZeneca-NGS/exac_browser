@@ -8,6 +8,7 @@
         window.variants_in_transcript = {{ variants_in_transcript_json|safe }};
         window.transcripts_in_gene = {{ transcripts_in_gene_json|safe }};
         window.coverage_stats = {{ coverage_stats_json|safe }};
+        window.population_coverage_stats = {{ population_coverage_stats_json|safe }}
         window.page_name = window.gene.gene_id;
         window.cnvs = {{ cnvs_json|safe }};
         window.cnvgenes = {{ cnvgenes_json|safe }};
@@ -271,8 +272,17 @@
                 <h3>Gene summary</h3>
                 <h4>(<span class="hidden-xs">Coverage shown for </span><a href="http://www.ensembl.org/Help/Glossary?id=346" target="_blank">canonical transcript</a>: {{ transcript.transcript_id }})</h4>
                 <div class="row">
-                    {% with plot_id = gene.gene_name %}
+                    {% with plot_id = 'sample' %}
+                        {% with population_plot = False %}
                         {% include 'transcript_display.html' %}
+                        {% endwith %}
+                    {% endwith %}
+                </div>
+                <div class="row">
+                    {% with plot_id = 'population' %}
+                        {% with population_plot = True %}
+                        {% include 'transcript_display.html' %}
+                        {% endwith %}
                     {% endwith %}
                 </div>
                 <div class="row">

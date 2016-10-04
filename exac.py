@@ -58,11 +58,13 @@ app.config.update(dict(
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
     SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
+    POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
     BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'chr*.txt.gz'),
     FILTERED_REGIONS_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'filtered_regions*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI_CNV-final.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
+    KEY_GENES_FPATH=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'az_key_genes.300.txt'),
     CNV_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'exac-gencode-exon.cnt.final.pop3'),
     CNV_GENE_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'exac-final-cnvs.gene.rank'),
 
@@ -123,14 +125,33 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
     print("Finished loading subset %(subset_i)s from  %(short_filenames)s (%(counter)s records)" % locals())
 
 
-def load_base_coverage(project_name=None, genome=None):
-    def load_coverage(coverage_files, i, n, db):
-        coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file)
-        try:
-            db.base_coverage.insert(coverage_generator, w=0)
-        except pymongo.errors.InvalidOperation:
-            pass  # handle error when coverage_generator is empty
+def load_coverage(coverage_files, i, n, coverage_db):
+    coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file)
+    try:
+        coverage_db.insert(coverage_generator, w=0)
+    except pymongo.errors.InvalidOperation:
+        pass  # handle error when coverage_generator is empty
 
+
+def load_population_coverage():
+    full_db = get_db()
+    procs = []
+    full_db.population_coverage.drop()
+    print("Dropped db.population_coverage")
+    # load coverage first; variant info will depend on coverage
+    full_db.population_coverage.ensure_index('xpos')
+
+    coverage_files = glob.glob(app.config['POPULATION_COVERAGE_FILES'])
+    num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+    # random.shuffle(app.config['BASE_COVERAGE_FILES'])
+    for i in range(num_procs):
+        p = Process(target=load_coverage, args=(coverage_files, i, num_procs, full_db.population_coverage))
+        p.start()
+        procs.append(p)
+    return procs
+
+
+def load_base_coverage(project_name=None, genome=None):
     full_db = get_db()
     if project_name:
         projects = [get_one_project(full_db, project_name, genome)]
@@ -149,28 +170,12 @@ def load_base_coverage(project_name=None, genome=None):
         # random.shuffle(app.config['BASE_COVERAGE_FILES'])
         max_procs = max(1, num_procs / len(projects))
         for i in range(max_procs):
-            p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db))
+            p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db.base_coverage))
             p.start()
             procs.append(p)
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
-
-
-def get_projects(full_db):
-    projects = full_db.projects.find()
-    projects = [(project['name'], project['genome']) for project in projects]
-    return projects
-
-
-def get_one_project(full_db, project_name, genome):
-    if not genome:
-        print('Error! Please specify project name and genome')
-        sys.exit(2)
-    project = (project_name, genome)
-    if not full_db.projects.find({'name': project_name, 'genome': genome}):
-        full_db.projects.insert({'name': project_name, 'genome': genome})
-    return project
 
 
 def load_variants_file(project_name=None, genome=None):
@@ -257,6 +262,7 @@ def load_evaluate_capture_data(project_name=None, genome=None):
             procs.append(p)
 
     print 'Done loading capture evaluating info. Took %s seconds' % int(time.time() - start_time)
+    return procs
 
 
 '''
@@ -472,7 +478,8 @@ def load_db():
         print('Exiting...')
         sys.exit(1)
     all_procs = []
-    for load_function in [load_variants_file, load_base_coverage, load_gene_models, load_cnv_models, load_cnv_genes]:
+    for load_function in [load_variants_file, load_base_coverage, load_evaluate_capture_data, load_gene_models,
+                          load_cnv_models, load_cnv_genes, load_population_coverage]:
         procs = load_function()
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -661,7 +668,7 @@ def project_page(project_name, project_genome):
     check_project_exists(project_name)
     db = get_db()
     filtered_regions = lookups.get_filtered_regions_in_project(db, project_name, project_genome)
-    depth_thresholds = sorted(list(set([r['depth_threshold'] for r in filtered_regions])))
+    depth_thresholds = sorted(list(set([r['depth_threshold'] for r in filtered_regions])), key=natural_key)
     t = render_template(
         'project_page.html',
         project_name=project_name,
@@ -762,7 +769,7 @@ def variant_page(project_name, project_genome, variant_str):
             for annotation in variant['vep_annotations']:
                 annotation['HGVS'] = get_proper_hgvs(annotation)
                 consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene_Name'], []).append(annotation)
-        base_coverage = lookups.get_coverage_for_bases(db, project_name, project_genome, xpos, xpos + len(ref) - 1)
+        base_coverage = lookups.get_coverage_for_bases(db, xpos, xpos + len(ref) - 1, project_name, project_genome)
         any_covered = any([x['has_coverage'] for x in base_coverage])
         metrics = lookups.get_metrics(db, project_name, project_genome, variant)
 
@@ -898,9 +905,10 @@ def get_gene_page_content(project_name, project_genome, gene_id):
             transcript_id = gene['canonical_transcript']
             transcript = lookups.get_transcript(db, project_genome, transcript_id)
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
+            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, project_name, project_genome)
+            population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, use_population_data=True)
             cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
             cnvs_per_gene = lookups.get_cnvs(db, gene_id)
-            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
             constraint_info = lookups.get_constraint_for_transcript(db, project_genome, transcript_id)
 
@@ -920,6 +928,8 @@ def get_gene_page_content(project_name, project_genome, gene_id):
                 transcripts_in_gene_json=JSONEncoder().encode(transcripts_in_gene),
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
+                population_coverage_stats=population_coverage_stats,
+                population_coverage_stats_json=JSONEncoder().encode(population_coverage_stats),
                 cnvs = cnvs_in_transcript,
                 cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
@@ -950,7 +960,7 @@ def transcript_page(project_name, project_genome, transcript_id):
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
             cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
             cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
-            coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
+            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, project_name, project_genome)
 
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
 
@@ -1013,7 +1023,7 @@ def region_page(project_name, project_genome, region_id):
             variants_in_region = lookups.get_variants_in_region(db, project_name, project_genome, chrom, start, stop)
             xstart = get_xpos(chrom, start)
             xstop = get_xpos(chrom, stop)
-            coverage_array = lookups.get_coverage_for_bases(db, project_name, project_genome, xstart, xstop)
+            coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, project_name, project_genome)
             t = render_template(
                 'region.html',
                 project_name=project_name,
@@ -1053,7 +1063,9 @@ def dbsnp_page(rsid, project_name, genome):
             start=start,
             stop=stop,
             coverage=None,
-            genes_in_region=None
+            genes_in_region=None,
+            csq_order=csq_order,
+            csq_order_json=JSONEncoder().encode(csq_order)
         )
     except Exception, e:
         print 'Failed on rsid:', rsid, ';Error=', traceback.format_exc()
@@ -1186,7 +1198,7 @@ def apply_caching(response):
 
 if __name__ == "__main__":
     # adds Flask command line options for setting host, port, etc.
-    app.run(host='0.0.0.0', threaded=True, debug=True, extra_files='autocomplete_projects.txt')
+    app.run(host='172.18.72.170', threaded=True, debug=True, extra_files='autocomplete_projects.txt')
     # runner = Runner(app)
     # runner.run()
     # manager = Manager(app)

@@ -6,6 +6,16 @@ import traceback
 from utils import *
 import copy
 
+POPS = {
+    'AFR': 'African',
+    'AMR': 'Latino',
+    'EAS': 'East Asian',
+    'FIN': 'European (Finnish)',
+    'NFE': 'European (Non-Finnish)',
+    'SAS': 'South Asian',
+    'OTH': 'Other'
+}
+
 
 def get_base_coverage_from_file(base_coverage_file, canonical_transcripts):
     """

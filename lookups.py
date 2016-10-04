@@ -79,16 +79,20 @@ def get_filtered_regions_in_project(db, project_name, genome):
     return list(regions)
 
 
-def get_coverage_for_bases(db, project_name, genome, xstart, xstop=None):
+def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=None, use_population_data=False):
     """
     Get the coverage for the list of bases given by xstart->xstop, inclusive
     Returns list of coverage dicts
     xstop can be None if just one base, but you'll still get back a list
     """
+    if use_population_data:
+        coverage_data = db.population_coverage
+    else:
+        coverage_data = db[get_project_key(project_name, genome)].base_coverage
     if xstop is None:
         xstop = xstart
     coverages = dict(
-        (doc['xpos'], doc) for doc in db[get_project_key(project_name, genome)].base_coverage.find(
+        (doc['xpos'], doc) for doc in coverage_data.find(
             {'xpos': {'$gte': xstart, '$lte': xstop}},
             projection={'_id': False}
         )
@@ -105,7 +109,7 @@ def get_coverage_for_bases(db, project_name, genome, xstart, xstop=None):
     return ret
 
 
-def get_coverage_for_transcript(db, project_name, genome, xstart, xstop=None):
+def get_coverage_for_transcript(db, xstart, xstop=None, project_name=None, genome=None, use_population_data=False):
     """
 
     :param db:
@@ -114,7 +118,7 @@ def get_coverage_for_transcript(db, project_name, genome, xstart, xstop=None):
     :param xstop:
     :return:
     """
-    coverage_array = get_coverage_for_bases(db, project_name, genome, xstart, xstop)
+    coverage_array = get_coverage_for_bases(db, xstart, xstop, project_name, genome, use_population_data)
     # only return coverages that have coverage (if that makes any sense?)
     # return coverage_array
     covered = [c for c in coverage_array if c['has_coverage']]
@@ -293,7 +297,7 @@ def remove_extraneous_information(variant):
     del variant['transcripts']
     del variant['genes']
     del variant['orig_alt_alleles']
-    del variant['xpos']
+    #del variant['xpos']
     del variant['xstart']
     del variant['xstop']
     del variant['site_quality']
