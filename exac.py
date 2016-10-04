@@ -18,7 +18,6 @@ from utils import *
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify, send_from_directory
 from flask.ext.compress import Compress
 from flask.ext.runner import Runner
-#from flask.ext.script import Manager, Server
 from flask_errormail import mail_on_500
 
 from flask import Response
@@ -42,12 +41,11 @@ app = Flask(__name__)
 mail_on_500(app, ADMINISTRATORS)
 Compress(app)
 app.config['COMPRESS_DEBUG'] = True
-cache = SimpleCache(default_timeout=60*60*24)
+cache = SimpleCache()
 
 EXAC_FILES_DIRECTORY = '../exac_data/'
 REGION_LIMIT = 1E5
 EXON_PADDING = 50
-
 # Load default config and override config from an environment variable
 app.config.update(dict(
     DB_HOST='localhost',
@@ -63,8 +61,10 @@ app.config.update(dict(
     BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'chr*.txt.gz'),
     FILTERED_REGIONS_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'filtered_regions*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
-    CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI.txt.gz'),
+    CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI_CNV-final.txt.gz'),
     MNP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'MNPs_NotFiltered_ForBrowserRelease.txt.gz'),
+    CNV_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'exac-gencode-exon.cnt.final.pop3'),
+    CNV_GENE_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'exac-final-cnvs.gene.rank'),
 
     # How to get a dbsnp142.txt.bgz file:
     #   wget ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b142_GRCh37p13/database/organism_data/b142_SNPChrPosOnRef_105.bcp.gz
@@ -379,6 +379,38 @@ def load_gene_models():
     return []
 
 
+def load_cnv_models():
+    db = get_db()
+
+    db.cnvs.drop()
+    print 'Dropped db.cnvs.'
+
+    start_time = time.time()
+    with open(app.config['CNV_FILE']) as cnv_txt_file:
+        for cnv in get_cnvs_from_txt(cnv_txt_file):
+            db.cnvs.insert(cnv, w=0)
+            #progress.update(gtf_file.fileobj.tell())
+        #progress.finish()
+
+    print 'Done loading CNVs. Took %s seconds' % int(time.time() - start_time)
+
+def drop_cnv_genes():
+    db = get_db()
+    start_time = time.time()
+    db.cnvgenes.drop()
+
+def load_cnv_genes():
+    db = get_db()
+    start_time = time.time()
+    with open(app.config['CNV_GENE_FILE']) as cnv_gene_file:
+        for cnvgene in get_cnvs_per_gene(cnv_gene_file):
+            db.cnvgenes.insert(cnvgene, w=0)
+            #progress.update(gtf_file.fileobj.tell())
+        #progress.finish()
+
+    print 'Done loading CNVs in genes. Took %s seconds' % int(time.time() - start_time)
+
+
 def load_dbsnp_file():
     db = get_db()
 
@@ -440,7 +472,7 @@ def load_db():
         print('Exiting...')
         sys.exit(1)
     all_procs = []
-    for load_function in [load_variants_file, load_base_coverage, load_gene_models]:
+    for load_function in [load_variants_file, load_base_coverage, load_gene_models, load_cnv_models, load_cnv_genes]:
         procs = load_function()
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -621,12 +653,7 @@ def check_project_exists(project_name):
 
 @app.route('/')
 def homepage():
-    cache_key = 't-homepage'
-    t = cache.get(cache_key)
-    if t is None:
-        t = render_template('homepage.html')
-        cache.set(cache_key, t)
-    return t
+    return render_template('homepage.html')
 
 
 @app.route('/<project_genome>/<project_name>/')
@@ -754,34 +781,46 @@ def variant_page(project_name, project_genome, variant_str):
             "combined_bams",
             chrom,
             "combined_chr%s_%03d.db" % (chrom, pos % 1000))
-        print(sqlite_db_path)
+        logging.info(sqlite_db_path)
         try:
             read_viz_db = sqlite3.connect(sqlite_db_path)
-            n_het = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
-                "where chrom=? and pos=? and ref=? and alt=? and het_or_hom=?", (chrom, pos, ref, alt, 'het')).fetchone()
-            n_hom = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
-                "where chrom=? and pos=? and ref=? and alt=? and het_or_hom=?", (chrom, pos, ref, alt, 'hom')).fetchone()
+            if chrom in ('X', 'Y'):
+                n_het = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
+                    "where chrom=? and pos=? and ref=? and alt=? and het_or_hom_or_hemi=?", (chrom, pos, ref, alt, 'het')).fetchone()
+                n_hom = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
+                    "where chrom=? and pos=? and ref=? and alt=? and het_or_hom_or_hemi=?", (chrom, pos, ref, alt, 'hom')).fetchone()
+                n_hemi = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
+                    "where chrom=? and pos=? and ref=? and alt=? and het_or_hom_or_hemi=?", (chrom, pos, ref, alt, 'hemi')).fetchone()
+            else:
+                n_het = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
+                    "where chrom=? and pos=? and ref=? and alt=? and het_or_hom=?", (chrom, pos, ref, alt, 'het')).fetchone()
+                n_hom = read_viz_db.execute("select n_expected_samples, n_available_samples from t "
+                    "where chrom=? and pos=? and ref=? and alt=? and het_or_hom=?", (chrom, pos, ref, alt, 'hom')).fetchone()
+                n_hemi = None
             read_viz_db.close()
         except Exception, e:
-            logging.debug("Error when accessing sqlite db: %s - %s", sqlite_db_path, e)
-            n_het = n_hom = None
+            logging.error("Error when accessing sqlite db: %s - %s", sqlite_db_path, e)
+            n_het = n_hom = n_hemi = None
 
         read_viz_dict = {
             'het': {'n_expected': n_het[0] if n_het is not None and n_het[0] is not None else -1, 'n_available': n_het[1] if n_het and n_het[1] else 0,},
             'hom': {'n_expected': n_hom[0] if n_hom is not None and n_hom[0] is not None else -1, 'n_available': n_hom[1] if n_hom and n_hom[1] else 0,},
+            'hemi': {'n_expected': n_hemi[0] if n_hemi is not None and n_hemi[0] is not None else -1, 'n_available': n_hemi[1] if n_hemi and n_hemi[1] else 0,},
         }
 
-        for het_or_hom in ('het', 'hom',):
-            #read_viz_dict[het_or_hom]['some_samples_missing'] = (read_viz_dict[het_or_hom]['n_expected'] > 0)    and (read_viz_dict[het_or_hom]['n_expected'] - read_viz_dict[het_or_hom]['n_available'] > 0)
-            read_viz_dict[het_or_hom]['all_samples_missing'] = (read_viz_dict[het_or_hom]['n_expected'] != 0) and (read_viz_dict[het_or_hom]['n_available'] == 0)
-            read_viz_dict[het_or_hom]['readgroups'] = [
-                '%(chrom)s-%(pos)s-%(ref)s-%(alt)s_%(het_or_hom)s%(i)s' % locals()
-                    for i in range(read_viz_dict[het_or_hom]['n_available'])
+        for het_or_hom_or_hemi in ('het', 'hom', 'hemi'):
+            #read_viz_dict[het_or_hom_or_hemi]['some_samples_missing'] = (read_viz_dict[het_or_hom_or_hemi]['n_expected'] > 0)    and (read_viz_dict[het_or_hom_or_hemi]['n_expected'] - read_viz_dict[het_or_hom_or_hemi]['n_available'] > 0)
+            read_viz_dict[het_or_hom_or_hemi]['all_samples_missing'] = (read_viz_dict[het_or_hom_or_hemi]['n_expected'] != 0) and (read_viz_dict[het_or_hom_or_hemi]['n_available'] == 0)
+            read_viz_dict[het_or_hom_or_hemi]['readgroups'] = [
+                '%(chrom)s-%(pos)s-%(ref)s-%(alt)s_%(het_or_hom_or_hemi)s%(i)s' % locals()
+                    for i in range(read_viz_dict[het_or_hom_or_hemi]['n_available'])
+
             ]   #eg. '1-157768000-G-C_hom1',
 
-            read_viz_dict[het_or_hom]['urls'] = [
+            read_viz_dict[het_or_hom_or_hemi]['urls'] = [
+                #os.path.join('combined_bams', chrom, 'combined_chr%s_%03d.bam' % (chrom, pos % 1000))
                 os.path.join('combined_bams', chrom, 'combined_chr%s_%03d.bam' % (chrom, pos % 1000))
-                    for i in range(read_viz_dict[het_or_hom]['n_available'])
+                    for i in range(read_viz_dict[het_or_hom_or_hemi]['n_available'])
             ]
         chrom = chrom.replace('chr', '')
         bam_fpath = os.path.join(
@@ -851,7 +890,6 @@ def get_gene_page_content(project_name, project_genome, gene_id):
             abort(404)
         cache_key = 't-gene-{}-{}-{}'.format(project_genome, project_name, gene_id)
         t = cache.get(cache_key)
-        print 'Rendering %sgene: %s' % ('' if t is None else 'cached ', gene_id)
         if t is None:
             variants_in_gene = lookups.get_variants_in_gene(db, project_name, project_genome, gene_id)
             transcripts_in_gene = lookups.get_transcripts_in_gene(db, project_genome, gene_id)
@@ -860,6 +898,8 @@ def get_gene_page_content(project_name, project_genome, gene_id):
             transcript_id = gene['canonical_transcript']
             transcript = lookups.get_transcript(db, project_genome, transcript_id)
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
+            cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            cnvs_per_gene = lookups.get_cnvs(db, gene_id)
             coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
             constraint_info = lookups.get_constraint_for_transcript(db, project_genome, transcript_id)
@@ -880,11 +920,12 @@ def get_gene_page_content(project_name, project_genome, gene_id):
                 transcripts_in_gene_json=JSONEncoder().encode(transcripts_in_gene),
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
-                constraint=constraint_info,
-                csq_order=csq_order,
-                csq_order_json=JSONEncoder().encode(csq_order)
+                cnvs = cnvs_in_transcript,
+                cnvgenes = cnvs_per_gene,
+                constraint=constraint_info
             )
-            cache.set(cache_key, t)
+            cache.set(cache_key, t, timeout=1000*60)
+        print 'Rendering gene: %s' % gene_id
         return t
     except Exception, e:
         print 'Failed on gene:', gene_id, ';Error=', traceback.format_exc()
@@ -900,13 +941,13 @@ def transcript_page(project_name, project_genome, transcript_id):
 
         cache_key = 't-transcript-{}-{}-{}'.format(project_genome, project_name, transcript_id)
         t = cache.get(cache_key)
-        print 'Rendering %stranscript: %s' % ('' if t is None else 'cached ', transcript_id)
         if t is None:
 
             gene = lookups.get_gene(db, project_genome, transcript['gene_id'])
             gene['transcripts'] = lookups.get_transcripts_in_gene(db, project_genome, transcript['gene_id'])
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
-
+            cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
             coverage_stats = lookups.get_coverage_for_transcript(db, project_name, project_genome, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING)
 
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
@@ -922,11 +963,14 @@ def transcript_page(project_name, project_genome, transcript_id):
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
                 gene=gene,
-                gene_json=JSONEncoder().encode(gene),
-                csq_order=csq_order,
-                csq_order_json=JSONEncoder().encode(csq_order)
+                gene_json=json.dumps(gene),
+                cnvs = cnvs_in_transcript,
+                cnvs_json=json.dumps(cnvs_in_transcript),
+                cnvgenes = cnvs_per_gene,
+                cnvgenes_json=json.dumps(cnvs_per_gene)
             )
-            cache.set(cache_key, t)
+            cache.set(cache_key, t, timeout=1000*60)
+        print 'Rendering transcript: %s' % transcript_id
         return t
     except Exception, e:
         print 'Failed on transcript:', transcript_id, ';Error=', traceback.format_exc()
@@ -940,7 +984,6 @@ def region_page(project_name, project_genome, region_id):
         region = region_id.split('-')
         cache_key = 't-region-{}-{}-{}'.format(project_genome, project_name, region_id)
         t = cache.get(cache_key)
-        print 'Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id)
         if t is None:
             chrom = region[0]
             start = None
@@ -959,9 +1002,7 @@ def region_page(project_name, project_genome, region_id):
                     chrom=chrom,
                     start=start,
                     stop=stop,
-                    coverage=None,
-                    csq_order=csq_order,
-                    csq_order_json=JSONEncoder().encode(csq_order)
+                    coverage=None
                 )
             if start == stop:
                 start -= 20
@@ -984,10 +1025,8 @@ def region_page(project_name, project_genome, region_id):
                 stop=stop,
                 coverage=coverage_array,
                 coverage_json=JSONEncoder().encode(coverage_array),
-                csq_order=csq_order,
-                csq_order_json=JSONEncoder().encode(csq_order)
             )
-            cache.set(cache_key, t)
+        print 'Rendering region: %s' % region_id
         return t
     except Exception, e:
         print 'Failed on region:', region_id, ';Error=', traceback.format_exc()
@@ -1012,9 +1051,7 @@ def dbsnp_page(rsid, project_name, genome):
             start=start,
             stop=stop,
             coverage=None,
-            genes_in_region=None,
-            csq_order=csq_order,
-            csq_order_json=JSONEncoder().encode(csq_order)
+            genes_in_region=None
         )
     except Exception, e:
         print 'Failed on rsid:', rsid, ';Error=', traceback.format_exc()

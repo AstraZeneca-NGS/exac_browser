@@ -411,7 +411,6 @@
             </div>
         </div>
 
-        {#% if read_viz|length > 0  %#}
 
         <hr/>
 
@@ -469,7 +468,7 @@
 
                 var get_bam_track_config = function(sample_name) {
                     return {
-                        type: 'bam',   
+                        type: 'bam',
                         indexed: true,
                         alignmentShading: 'strand',
                         url: "{{ bam_url }}" + sample_name + ".bam",

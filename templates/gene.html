@@ -9,6 +9,8 @@
         window.transcripts_in_gene = {{ transcripts_in_gene_json|safe }};
         window.coverage_stats = {{ coverage_stats_json|safe }};
         window.page_name = window.gene.gene_id;
+        window.cnvs = {{ cnvs|tojson|safe }};
+        window.cnvgenes = {{ cnvgenes|tojson|safe }};
     </script>
     <style>
 
@@ -17,6 +19,30 @@
         $(document).ready(function() {
             $("#variants_loading").hide();
             $("#variants_table_container").show();
+        });
+
+        var isCtrl = false;
+        $(document).keyup(function (e) {
+            if(e.which == 17) isCtrl=false;
+            }).keydown(function (e) {
+                if(e.which == 17) isCtrl=true;
+                if(e.which == 76 && isCtrl == true) { // ctrl-L
+                    $('#consequence_lof_variant_button').click();
+                } else if (e.which == 77 && isCtrl == true) { // ctrl-M
+                    $('#consequence_missenseAndLof_variant_button').click();
+                } else if (e.which == 68 && isCtrl == true) { // ctrl-D
+                    $('#display_coverage_detail_button').click();
+                } else if (e.which == 79 && isCtrl == true) { // ctrl-O
+                    $('#display_coverage_overview_button').click();
+                } else if (e.which == 65 && isCtrl == true) { // ctrl-A
+                    var sorting = [[12,1]];
+                    $("#variant_table").trigger("sorton",[sorting]);
+                } else if (e.which == 82 && isCtrl == true) { // ctrl-R
+                    $('#display_coverage_overview_button').click();
+                    $('#consequence_all_variant_button').click();
+                    var sorting = [[1,0], [2,0], [10,1]];
+                    $("#variant_table").trigger("sorton",[sorting]);
+                }
         });
     </script>
     <div class="container-fluid">
@@ -33,6 +59,16 @@
                     {% endif %}
                     <dt>Number of variants</dt>
                     <dd><span id="number_of_variants"></span> (Including filtered: {{ variants_in_gene|length }})</dd>
+		    <dt>Number of CNVs</dt>
+		    {% if constraint %}
+		       {% if constraint.n_cnv >= 0 %}
+                         <dd><span id="number_of_cnvs"></span> (Including filtered: <span id="number_all_cnvs"></span>)</dd>
+			 {% else %}
+			 <dd> N/A </dd>
+		         {% endif %}
+		    {% else %}
+			<dd>  N/A </dd>
+		    {% endif %}
 {#                    <dt>Number of LoF variants</dt>#}
 {#                    <dd><span id="number_of_lof_variants"></span> (Including filtered: {{ lof_variants_in_gene|length }})</dd>#}
                     <script>
@@ -44,13 +80,39 @@
                             return d.filter == 'PASS' && d.category == 'lof_variant';
                         });
                         $('#number_of_lof_variants').replaceWith(lof_filtered_variants.length);
+
+			var v = window.cnvgenes;
+                        filtered_cnvs = v[0].cnv60;
+                        $('#number_of_cnvs').replaceWith(filtered_cnvs);
+
+                        unfiltered_cnvs = v[0].cnv0;
+                        $('#number_all_cnvs').replaceWith(unfiltered_cnvs);
+
+                        filtered_dels = v[0].del60;
+                        $('#number_of_dels').replaceWith(filtered_dels);
+
+                        unfiltered_dels = v[0].del0;
+                        $('#number_all_dels').replaceWith(unfiltered_dels);
+
+                        filtered_dups = v[0].dup60;
+                        $('#number_of_dups').replaceWith(filtered_dups);
+
+                        unfiltered_dups = v[0].dup0;
+                        $('#number_all_dups').replaceWith(unfiltered_dups);
+
+                        cnv_score = v[0].cnv_score;
+                        $('#cnv_score').replaceWith(cnv_score);
+
+                        rank = v[0].rank;
+                        $('#rank').replaceWith(rank);
+
                     </script>
 {#                    <dt>LoF rate</dt>#}
 {#                    <dd>{{ '%0.4g' % composite_lof_frequency }}</dd>#}
                     <dt class="hidden-xs">UCSC Browser</dt>
                     <dd class="hidden-xs">
-                        <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start }}-{{ gene.stop }}" target="_blank">
-                            {{ gene.chrom }}:{{ gene.start }}-{{ gene.stop }}
+                        <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start - 1 }}-{{ gene.stop - 1 }}&hgt.customText=http://personal.broadinstitute.org/ruderfer/exac/exac-final.autosome-1pct-sq60-qc-prot-coding.cnv.bed" target="_blank">
+                            {{ gene.chrom }}:{{ gene.start - 1 }}-{{ gene.stop - 1 }}
                             <i class="fa fa-external-link"></i>
                         </a>
                     </dd>
@@ -86,7 +148,7 @@
                             </button>
                             <ul class="dropdown-menu" role="menu" aria-labelledby="external_ref_dropdown">
                                 <li role="presentation" class="visible-xs-block">
-                                    <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start }}-{{ gene.stop }}" target="_blank">
+                                    <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr{{ gene.chrom }}%3A{{ gene.start - 1 }}-{{ gene.stop - 1 }}" target="_blank">
                                         UCSC Browser
                                         <i class="fa fa-external-link"></i>
                                     </a>
@@ -192,6 +254,12 @@
                                     {% endif %} =
                                     {{ "%0.2f" % constraint.pLI }}
                                 </td>
+                            </tr>
+                            <tr>
+                                <td>CNV</td>
+                                <td>{{ "%0.1f" % constraint.exp_cnv }}</td>
+                                <td>{{ "%0.0f" % constraint.n_cnv }}</td>
+                                <td>z = {{ "%0.2f" % constraint.cnv_z }}</td>
                             </tr>
                         </tbody>
                     </table>

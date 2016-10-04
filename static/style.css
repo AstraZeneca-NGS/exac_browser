@@ -193,3 +193,14 @@ TODO: come up with a better way to position tooltip
 
 .hs {
   margin-left: 0.2em; }
+.variant_selector_group {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.varying_selector_checkboxes {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}

@@ -50,6 +50,21 @@ def load_gene_models():
 
 
 @manager.command
+def load_cnv_models():
+    exac.load_cnv_models()
+
+
+@manager.command
+def load_cnv_genes():
+    exac.load_cnv_genes()
+
+
+@manager.command
+def drop_cnv_genes():
+    exac.drop_cnv_genes()
+
+
+@manager.command
 def load_dbsnp_file():
     exac.load_dbsnp_file()
 

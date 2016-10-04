@@ -116,6 +116,52 @@ window.precalc_coding_coordinates = function(_transcript, objects, key) {
     });
 };
 
+window.get_cnv = function(_cnvs, start, stop, type, filter_status){
+    var r = 0;
+    for (var i=0; i<_cnvs.length; i++) {
+        if(_cnvs[i].start+1 == start || _cnvs[i].stop+1 == stop){
+            if(filter_status)
+		{
+		    accessor = type + '0';
+		}else{
+                accessor = type + '60';
+            }
+            r =  _cnvs[i][accessor];
+        }
+    }
+    return r;
+};
+
+window.get_cnv_pop = function(_cnvs, start, stop, type, filter_status){
+    var r = 0;
+    for (var i=0; i<_cnvs.length; i++) {
+        if(_cnvs[i].start+1 == start || _cnvs[i].stop+1 == stop){
+            if(filter_status)
+		{
+		    accessor = type + 'pop0';
+		}else{
+                accessor = type + 'pop60';
+            }
+            r =  _cnvs[i][accessor];
+        }
+    }
+    return r;
+};
+
+window.get_max_cnv = function(_cnvs, filter_status){
+    var r = 0;
+    for (var i=0; i<_cnvs.length; i++) {
+	if(filter_status){
+	    var m = Math.max(_cnvs[i].del0, _cnvs[i].dup0);
+	}else{
+	    var m = Math.max(_cnvs[i].del60, _cnvs[i].dup60);
+	}
+	if( m > r){
+	        r = m
+		    }
+    }
+    return r;
+};
 
 
 
@@ -508,16 +554,80 @@ function draw_region_coverage(raw_data, metric, ref) {
     }
 }
 
+var csq_order = [
+  'transcript_ablation',
+  'splice_acceptor_variant',
+  'splice_donor_variant',
+  'stop_gained',
+  'frameshift_variant',
+  'stop_lost',
+  'start_lost',
+  'inframe_insertion',
+  'inframe_deletion',
+  'missense_variant',
+  'protein_altering_variant',
+  'incomplete_terminal_codon_variant',
+  'stop_retained_variant',
+  'synonymous_variant',
+  'coding_sequence_variant',
+  'mature_miRNA_variant',
+  '5_prime_UTR_variant',
+  '3_prime_UTR_variant',
+  'non_coding_transcript_exon_variant',
+  'non_coding_exon_variant',
+  'NMD_transcript_variant',
+  'non_coding_transcript_variant',
+  'nc_transcript_variant',
+  'downstream_gene_variant',
+  'TFBS_ablation',
+  'TFBS_amplification',
+  'TF_binding_site_variant',
+  'regulatory_region_ablation',
+  'regulatory_region_amplification',
+  'feature_elongation',
+  'regulatory_region_variant',
+  'feature_truncation',
+  'intergenic_variant',
+  ''
+]
+
+var categoryDefinitions = {
+  all: csq_order,
+  lof: csq_order.slice(0, csq_order.indexOf('stop_lost')),
+  missense: csq_order.slice(
+      csq_order.indexOf('stop_lost'),
+      csq_order.indexOf('protein_altering_variant')
+  ),
+}
+categoryDefinitions.missenseAndLof =
+    categoryDefinitions.lof.concat(categoryDefinitions.missense)
+
 function update_variants() {
-    var category = $('.consequence_display_buttons.active').attr('id').replace('consequence_', '').replace('_variant_button', '');
-    var filter = $('#filtered_checkbox').is(":checked") ? '[filter_status]' : '[filter_status="PASS"]';
-    $('[category]').hide();
-    if (category == 'other') {
-        $('[category]' + filter).show();
-    } else if (category == 'missense') {
-        $('[category=missense_variant]' + filter).show();
-    }
-    $('[category=lof_variant]' + filter).show();
+    var category = $('.consequence_display_buttons.active')
+        .attr('id')
+        .replace('consequence_', '')
+        .replace('_variant_button', '');
+    var filterState = $('#filtered_checkbox').is(":checked")
+    var indelState = $('.indel_display_buttons.active')
+        .attr('id')
+        .replace('indel_selection_', '')
+        .replace('_button', '');
+    $('[major_consequence]').hide()
+    $('[major_consequence]').map(function(row) {
+        if (!filterState && $(this).attr('filter_status') !== 'PASS') {
+            return
+        }
+        if (indelState === 'snp' && $(this).attr('indel') === 'true') {
+            return
+        }
+        if (indelState === 'indel' && $(this).attr('indel') === 'false') {
+            return
+        }
+        if (_.contains(categoryDefinitions[category], $(this).attr('major_consequence'))
+        ) {
+            $(this).show()
+        }
+    })
     if ($('tr[style!="display: none;"]').length == 1) {
         $('#variants_table_empty').show();
         $('#variants_table_container').hide();
@@ -525,6 +635,11 @@ function update_variants() {
         $('#variants_table_empty').hide();
         $('#variants_table_container').show();
     }
+}
+
+function update_cnvs() {
+    var filter = $('#filtered_checkbox').is(":checked") ? '[filter_status]' : '[filter_status="PASS"]';
+    console.log($('#filtered_checkbox').is(":checked"));
 }
 
 function get_af_bounds(data) {
@@ -552,6 +667,13 @@ gene_chart_margin_lower = {top: 5, right: gene_chart_margin.right, bottom: 5, le
 
 lower_gene_chart_height = 50 - gene_chart_margin_lower.top - gene_chart_margin_lower.bottom,
     gene_chart_height = 300 - gene_chart_margin.top - gene_chart_margin.bottom - lower_gene_chart_height - gene_chart_margin_lower.top - gene_chart_margin_lower.bottom;
+
+cnv_chart_margin = {top: 30, right: gene_chart_margin.right, bottom: gene_chart_margin.bottom, left: gene_chart_margin.left};
+if ($(window).width() < 768) {
+    cnv_chart_margin.left = 10;
+
+}
+
 
 function change_track_chart_variant_size(variant_data, change_to, container) {
     var svg_outer = d3.select(container).select('#track');
