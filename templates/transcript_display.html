@@ -32,7 +32,7 @@
         <span id="gene_plot_container_{{ plot_id }}" style="overflow-x:scroll; display: inline-block;"></span>
         <a class="btn btn-success" id="coverage_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_coverage">Save coverage plot</a>
         <a class="btn btn-success" id="exon_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_exon">Save exon image</a>
-        <a class="btn btn-success" id="cnv_plot_download" target="_blank" download="{{ plot_id }}_cnv">Save CNV image</a>
+        <a class="btn btn-success" id="cnv_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_cnv">Save CNV image</a>
     </div>
 </div>
 <style>
@@ -55,13 +55,15 @@
 $(document).ready(function() {
     var population_plot = "{{ population_plot }}" == "True";
     var gene_plot_container = '#gene_plot_container_{{ plot_id }}';
+    var include_utr_checkbox = '#include_utrs_checkbox_{{ plot_id }}';
+    var cnv_svg = 'cnv_svg_{{ plot_id }}';
     var transcript = window.transcript;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
     var variants_in_transcript = !population_plot ? window.variants_in_transcript : window.population_variants_in_transcript;
     if ($(window).width() < 768) {
-        $('#gene_plot_container_{{ plot_id }}').css('width', $(window).width() + "px");
+        $(gene_plot_container).css('width', $(window).width() + "px");
     } else {
-        $('#gene_plot_container_{{ plot_id }}').css('width', $(window).width()*10/12 + "px");
+        $(gene_plot_container).css('width', $(window).width()*10/12 + "px");
     }
     precalc_coding_coordinates(transcript, coverage_stats, 'pos');
     precalc_coding_coordinates(transcript, variants_in_transcript, 'pos');
@@ -81,7 +83,7 @@ $(document).ready(function() {
     var new_data = create_new_data(coverage_stats, 'pos_coding');
     var new_data_skip_utr = create_new_data(coverage_stats, 'pos_coding_noutr');
     if (coverage_stats != null) {
-        gene_chart(coverage_stats, new_data_skip_utr, variants_in_transcript, transcript, gene_plot_container);
+        gene_chart(coverage_stats, new_data_skip_utr, variants_in_transcript, transcript, window.cnvs, gene_plot_container, cnv_svg);
         if (variants_in_transcript.length) {
             update_variants();
         }
@@ -102,34 +104,38 @@ $(document).ready(function() {
             v = $("#average_select_{{ plot_id }}").val();
         }
         var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
-        var include_utrs = $('#include_utrs_checkbox_{{ plot_id }}').is(':checked');
+        var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
-        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs, '#gene_plot_container_{{ plot_id }}');
+        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
+                gene_plot_container, cnv_svg);
     });
     $('#over_x_select_{{ plot_id }}').change(function () {
         var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
-        var include_utrs = $('#include_utrs_checkbox_{{ plot_id }}').is(':checked');
+        var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         $('#avg_coverage_type_x_{{ plot_id }}').html($(this).val());
         $('#avg_coverage_x_{{ plot_id }}').html(coverage_sum($(this).val().replace('X', ''))*100 + '%');
-        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val().replace('X', ''), !include_utrs, '#gene_plot_container_{{ plot_id }}');
+        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val().replace('X', ''),
+                !include_utrs, gene_plot_container, cnv_svg);
     });
     $('#average_select_{{ plot_id }}').change(function () {
         var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
-        var include_utrs = $('#include_utrs_checkbox_{{ plot_id }}').is(':checked');
+        var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         $('#avg_coverage_type_{{ plot_id }}').html($(this).val());
         $('#avg_coverage_{{ plot_id }}').html(coverage_sum($(this).val()));
-        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val(), !include_utrs, '#gene_plot_container_{{ plot_id }}');
+        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val(), !include_utrs,
+                gene_plot_container, cnv_svg);
     });
-    $('#include_utrs_checkbox_{{ plot_id }}').change(function () {
+    $(include_utr_checkbox).change(function () {
         setTimeout(function() {
             var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
             var v = $('.coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('_covmet_button', '');
             v = (v == 'covered') ? $('#over_x_select_{{ plot_id }}').val().replace('X', '') : $("#average_select_{{ plot_id }}").val();
-            var include_utrs = $('#include_utrs_checkbox_{{ plot_id }}').is(':checked');
+            var include_utrs = $(include_utr_checkbox).is(':checked');
             var plot_data = include_utrs ? new_data : new_data_skip_utr;
-            change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs, '#gene_plot_container_{{ plot_id }}');
+            change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
+                    gene_plot_container, cnv_svg);
         }, 10);
     });
 
@@ -137,15 +143,15 @@ $(document).ready(function() {
     $('#inverted_checkbox_{{ plot_id }}').change(function () {
         setTimeout(function () {
             var v = $('#inverted_checkbox_{{ plot_id }}').is(':checked');
-            change_track_chart_variant_size(variants_in_transcript, v, '#gene_plot_container_{{ plot_id }}');
+            change_track_chart_variant_size(variants_in_transcript, v, gene_plot_container);
         }, 10);
     });
 
-    $('.consequence_display_buttons, #filtered_checkbox_{{ plot_id }}, .indel_display_buttons').change(function () {
+    $('.consequence_display_buttons, #filtered_checkbox, .indel_display_buttons').change(function () {
         setTimeout(function() {
             update_variants();
             update_cnvs();
-            refresh_links();
+            refresh_links("{{ plot_id }}");
         }, 10);
     });
 
@@ -159,9 +165,10 @@ $(document).ready(function() {
             $('#average_select_container_{{ plot_id }}').show();
             v = $("#average_select_{{ plot_id }}").val();
         }
-        var include_utrs = $('#include_utrs_checkbox_{{ plot_id }}').is(':checked');
+        var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
-        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs, '#gene_plot_container_{{ plot_id }}');
+        change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
+                gene_plot_container, cnv_svg);
     });
 
 {#    $("#coverage_plot_download").on('click', function() {#}
@@ -172,14 +179,14 @@ $(document).ready(function() {
 {#    });#}
     //change CNVs svg
     $('#filtered_checkbox').change(function () {
-        $("#cnv_svg").remove();
+        $("#" + cnv_svg).remove();
         var include_utrs = $('#include_utrs_checkbox').is(':checked');
         var detail = get_plot_detail();
 
-        make_cnvs_svg(window.cnvs, window.transcript, detail, !include_utrs, gene_plot_container);
+        make_cnvs_svg(window.cnvs, window.transcript, detail, !include_utrs, gene_plot_container, cnv_svg);
 
     });
 
-    refresh_links();
+    refresh_links("{{ plot_id }}");
 });
 </script>

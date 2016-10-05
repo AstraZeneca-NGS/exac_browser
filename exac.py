@@ -806,7 +806,7 @@ def variant_page(project_name, project_genome, variant_str):
                 n_hemi = None
             read_viz_db.close()
         except Exception, e:
-            logging.error("Error when accessing sqlite db: %s - %s", sqlite_db_path, e)
+            logging.debug("Error when accessing sqlite db: %s - %s", sqlite_db_path, e)
             n_het = n_hom = n_hemi = None
 
         read_viz_dict = {
@@ -825,7 +825,6 @@ def variant_page(project_name, project_genome, variant_str):
             ]   #eg. '1-157768000-G-C_hom1',
 
             read_viz_dict[het_or_hom_or_hemi]['urls'] = [
-                #os.path.join('combined_bams', chrom, 'combined_chr%s_%03d.bam' % (chrom, pos % 1000))
                 os.path.join('combined_bams', chrom, 'combined_chr%s_%03d.bam' % (chrom, pos % 1000))
                     for i in range(read_viz_dict[het_or_hom_or_hemi]['n_available'])
             ]
@@ -996,6 +995,7 @@ def region_page(project_name, project_genome, region_id):
         region = region_id.split('-')
         cache_key = 't-region-{}-{}-{}'.format(project_genome, project_name, region_id)
         t = cache.get(cache_key)
+        print 'Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id)
         if t is None:
             chrom = region[0]
             start = None
@@ -1063,9 +1063,7 @@ def dbsnp_page(rsid, project_name, genome):
             start=start,
             stop=stop,
             coverage=None,
-            genes_in_region=None,
-            csq_order=csq_order,
-            csq_order_json=JSONEncoder().encode(csq_order)
+            genes_in_region=None
         )
     except Exception, e:
         print 'Failed on rsid:', rsid, ';Error=', traceback.format_exc()

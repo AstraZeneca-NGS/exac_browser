@@ -82,30 +82,32 @@
                         });
                         $('#number_of_lof_variants').replaceWith(lof_filtered_variants.length);
 
-			var v = window.cnvgenes;
-                        filtered_cnvs = v[0].cnv60;
-                        $('#number_of_cnvs').replaceWith(filtered_cnvs);
+                        var v = window.cnvgenes;
+                        if (v && v.length > 0) {
+                            filtered_cnvs = v[0].cnv60;
+                            $('#number_of_cnvs').replaceWith(filtered_cnvs);
 
-                        unfiltered_cnvs = v[0].cnv0;
-                        $('#number_all_cnvs').replaceWith(unfiltered_cnvs);
+                            unfiltered_cnvs = v[0].cnv0;
+                            $('#number_all_cnvs').replaceWith(unfiltered_cnvs);
 
-                        filtered_dels = v[0].del60;
-                        $('#number_of_dels').replaceWith(filtered_dels);
+                            filtered_dels = v[0].del60;
+                            $('#number_of_dels').replaceWith(filtered_dels);
 
-                        unfiltered_dels = v[0].del0;
-                        $('#number_all_dels').replaceWith(unfiltered_dels);
+                            unfiltered_dels = v[0].del0;
+                            $('#number_all_dels').replaceWith(unfiltered_dels);
 
-                        filtered_dups = v[0].dup60;
-                        $('#number_of_dups').replaceWith(filtered_dups);
+                            filtered_dups = v[0].dup60;
+                            $('#number_of_dups').replaceWith(filtered_dups);
 
-                        unfiltered_dups = v[0].dup0;
-                        $('#number_all_dups').replaceWith(unfiltered_dups);
+                            unfiltered_dups = v[0].dup0;
+                            $('#number_all_dups').replaceWith(unfiltered_dups);
 
-                        cnv_score = v[0].cnv_score;
-                        $('#cnv_score').replaceWith(cnv_score);
+                            cnv_score = v[0].cnv_score;
+                            $('#cnv_score').replaceWith(cnv_score);
 
-                        rank = v[0].rank;
-                        $('#rank').replaceWith(rank);
+                            rank = v[0].rank;
+                            $('#rank').replaceWith(rank)
+                        }
 
                     </script>
 {#                    <dt>LoF rate</dt>#}

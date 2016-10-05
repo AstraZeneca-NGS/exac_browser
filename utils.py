@@ -1,4 +1,5 @@
 import os
+import re
 from operator import itemgetter
 import json
 from bson import ObjectId
@@ -382,3 +383,8 @@ def format_value(value, unit='', human_readable=True, is_html=False):
         return ', '.join(format_value(v, unit, human_readable, is_html) for v in value)
 
     return '.'
+
+
+def natural_key(s, _nsre=re.compile('([0-9]+)')):
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(_nsre, s)]

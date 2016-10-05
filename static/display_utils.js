@@ -1,5 +1,5 @@
 
-var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, container)
+var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, container, cnv_svg)
 {
 // plot CNVs as separate function
 // implemented this way so that just the CNVs svg can be redrawn without fudging with any of the other bits!
@@ -26,7 +26,7 @@ var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, containe
     var svg = d3.select(container).append("svg")
         .attr("width", chart_width + cnv_chart_margin.left + cnv_chart_margin.right)
         .attr("height",100 + 40)
-        .attr('id', 'cnv_svg')
+        .attr('id', cnv_svg)
         .append("g")
         .attr('id', 'track')
         .attr("transform", "translate(" + cnv_chart_margin.left + "," + 0 + ")");
@@ -182,7 +182,7 @@ var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, containe
 }
 
 
-function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container) {
+function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container, cnv_svg) {
     var coords = 'pos_coding_noutr';
     var coding_coordinate_params = get_coding_coordinate_params(_transcript, true);
     var chart_width = gene_chart_width;
@@ -419,7 +419,7 @@ function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container)
 
            // call to separate function to make the CNVs plot.
            var detail = get_plot_detail();
-           make_cnvs_svg(_cnvs, _transcript, detail, true);
+           make_cnvs_svg(_cnvs, _transcript, detail, true, container, cnv_svg);
 }
 
 function variant_colors(d) {
@@ -432,7 +432,7 @@ function variant_colors(d) {
     }
 }
 
-function change_coverage_chart(data, new_data, variant_data, _transcript, scale_type, metric, skip_utrs, container) {
+function change_coverage_chart(data, new_data, variant_data, _transcript, scale_type, metric, skip_utrs, container, cnv_svg) {
     var coords = skip_utrs ? 'pos_coding_noutr' : 'pos_coding';
     var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
     var coding_coordinate_params = get_coding_coordinate_params(_transcript, skip_utrs);
@@ -536,8 +536,8 @@ function change_coverage_chart(data, new_data, variant_data, _transcript, scale_
         .duration(200)
         .call(yAxis);
 
-    $("#cnv_svg").remove();
-    make_cnvs_svg(window.cnvs, _transcript, scale_type, skip_utrs);
+    $("#" + cnv_svg).remove();
+    make_cnvs_svg(window.cnvs, _transcript, scale_type, skip_utrs, container, cnv_svg);
 }
 
 function create_new_data(data, coords) {
@@ -589,8 +589,9 @@ function get_plot_detail() {
 }
 
 
-function refresh_links() {
-    $("#coverage_plot_download").attr('href', set_plot_image('gene_plot_container', 0));
-    $("#exon_plot_download").attr('href', set_plot_image('gene_plot_container', 1));
-    $("#cnv_plot_download").attr('href', set_plot_image('gene_plot_container', 2));
+function refresh_links(plot_id) {
+    var gene_plot_container = "gene_plot_container_" + plot_id;
+    $("#coverage_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 0));
+    $("#exon_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 1));
+    $("#cnv_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 2));
 }
