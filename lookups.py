@@ -5,6 +5,18 @@ import itertools
 SEARCH_LIMIT = 10000
 
 
+def get_project_by_project_name(db, project_name):
+    projects = list(db.projects.find({'name': project_name}))
+    return projects[0] if projects else None
+
+
+def get_project_samples(db, project_name, genome):
+    samples = list(db[get_project_key(project_name, genome)].samples.find())
+    if not samples:
+        return None
+    return [sample['name'] for sample in samples]
+
+
 def get_gene(db, genome, gene_id):
     return db[genome].genes.find_one({'gene_id': gene_id}, projection={'_id': False})
 
@@ -41,11 +53,6 @@ def get_variant(db, project_name, project_genome, xpos, ref, alt):
     return variant
 
 
-def get_project_by_project_name(db, project_name):
-    projects = list(db.projects.find({'name': project_name}))
-    return projects[0] if projects else None
-
-
 def get_variants_by_rsid(db, project_name, genome, rsid):
     if not rsid.startswith('rs'):
         return None
@@ -79,7 +86,7 @@ def get_filtered_regions_in_project(db, project_name, genome):
     return list(regions)
 
 
-def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=None, use_population_data=False):
+def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=None, sample_name=None, use_population_data=False):
     """
     Get the coverage for the list of bases given by xstart->xstop, inclusive
     Returns list of coverage dicts
@@ -88,7 +95,7 @@ def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=Non
     if use_population_data:
         coverage_data = db.population_coverage
     else:
-        coverage_data = db[get_project_key(project_name, genome)].base_coverage
+        coverage_data = db[get_project_key(project_name, genome)][sample_name].base_coverage
     if xstop is None:
         xstop = xstart
     coverages = dict(
@@ -109,7 +116,7 @@ def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=Non
     return ret
 
 
-def get_coverage_for_transcript(db, xstart, xstop=None, project_name=None, genome=None, use_population_data=False):
+def get_coverage_for_transcript(db, xstart, xstop=None, project_name=None, genome=None, sample_name=None, use_population_data=False):
     """
 
     :param db:
@@ -118,7 +125,7 @@ def get_coverage_for_transcript(db, xstart, xstop=None, project_name=None, genom
     :param xstop:
     :return:
     """
-    coverage_array = get_coverage_for_bases(db, xstart, xstop, project_name, genome, use_population_data)
+    coverage_array = get_coverage_for_bases(db, xstart, xstop, project_name, genome, sample_name, use_population_data)
     # only return coverages that have coverage (if that makes any sense?)
     # return coverage_array
     covered = [c for c in coverage_array if c['has_coverage']]
@@ -158,7 +165,7 @@ R3 = re.compile(r'^(\d+|X|Y|M|MT)$')
 R4 = re.compile(r'^\s*(\d+|X|Y|M|MT)\s*[-:]\s*(\d+)[-:\s]*([ATCG]+)\s*[-:/]\s*([ATCG]+)\s*$')
 
 
-def get_awesomebar_result(db, project_name, genome, query):
+def get_awesomebar_result(db, project_name, genome, sample_name, query):
     """
     Similar to the above, but this is after a user types enter
     We need to figure out what they meant - could be gene, variant, region
@@ -253,7 +260,7 @@ def get_genes_in_region(db, genome, chrom, start, stop):
     return list(genes)
 
 
-def get_variants_in_region(db, project_name, genome, chrom, start, stop):
+def get_variants_in_region(db, project_name, genome, chrom, start, stop, sample_name=None):
     """
     Variants that overlap a region
     Unclear if this will include CNVs
@@ -265,7 +272,8 @@ def get_variants_in_region(db, project_name, genome, chrom, start, stop):
     }, projection={'_id': False}, limit=SEARCH_LIMIT))
     add_consequence_to_variants(variants)
     for variant in variants:
-        remove_extraneous_information(variant)
+        if sample_name and check_variant_samples(variant, sample_name):
+            remove_extraneous_information(variant)
     return list(variants)
 
 
@@ -304,11 +312,20 @@ def remove_extraneous_information(variant):
     del variant['vep_annotations']
 
 
-def get_variants_in_gene(db, project_name, genome, gene_id):
+def check_variant_samples(variant, sample_name):
+    sample_index = variant['sample_names'].index(sample_name)
+    if not variant['sample_data'][sample_index]:
+        return False
+    return True
+
+
+def get_variants_in_gene(db, project_name, genome, gene_id, sample_name=None):
     """
     """
     variants = []
     for variant in db[get_project_key(project_name, genome)].variants.find({'genes': gene_id}, projection={'_id': False}):
+        if sample_name and not check_variant_samples(variant, sample_name):
+            continue
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Gene_Name'] == gene_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)
@@ -322,11 +339,13 @@ def get_transcripts_in_gene(db, genome, gene_id):
     return list(db[genome].transcripts.find({'gene_id': gene_id}, projection={'_id': False}))
 
 
-def get_variants_in_transcript(db, project_name, genome, transcript_id):
+def get_variants_in_transcript(db, project_name, genome, transcript_id, sample_name=None):
     """
     """
     variants = []
     for variant in db[get_project_key(project_name, genome)].variants.find({'transcripts': transcript_id}, projection={'_id': False}):
+        if sample_name and not check_variant_samples(variant, sample_name):
+            continue
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Feature_ID'] == transcript_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)

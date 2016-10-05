@@ -15,7 +15,7 @@ gene_chart_margin = {top: 10, right: 30, bottom: 30, left: 80},
 lower_gene_chart_height = 50 - gene_chart_margin_lower.top - gene_chart_margin_lower.bottom,
     gene_chart_height = 300 - gene_chart_margin.top - gene_chart_margin.bottom - lower_gene_chart_height - gene_chart_margin_lower.top - gene_chart_margin_lower.bottom;
 
-function region_chart(data, variant_data) {
+function region_chart(data, variant_data, container) {
     var metric = 'mean';
 
     var x = d3.scale.linear()
@@ -35,7 +35,7 @@ function region_chart(data, variant_data) {
         .scale(y)
         .orient("left");
 
-    var svg = d3.select('#region_plot_container').append("svg")
+    var svg = d3.select(container).append("svg")
         .attr("width", gene_chart_width + gene_chart_margin.left + gene_chart_margin.right)
         .attr("height", gene_chart_height + gene_chart_margin.top + gene_chart_margin.bottom)
         .append("g")
@@ -78,7 +78,7 @@ function region_chart(data, variant_data) {
         .attr("class", "y axis")
         .call(yAxis);
 
-    var svg_outer = d3.select('#region_plot_container').append("svg")
+    var svg_outer = d3.select(container).append("svg")
         .attr("width", gene_chart_width + gene_chart_margin_lower.left + gene_chart_margin_lower.right)
         .attr("height", lower_gene_chart_height)
         .append("g")
@@ -213,31 +213,45 @@ function change_region_chart_metric(data, metric, container) {
 
 
 $(document).ready(function() {
-    // Change coverage plot
-    $('.coverage_metric_buttons').change(function () {
-        var v = $(this).attr('id').replace('_covmet_button', '');
-        $('.coverage_subcat_selectors').hide();
-        if (v == 'covered') {
-            $('#over_x_select_container').show();
-            v = $('#over_x_select').val().replace('X', '');
-        } else {
-            $('#average_select_container').show();
-            v = $("#average_select").val();
+    var plot_id = '{{ plot_id }}';
+    var population_plot = plot_id == 'population';
+    var region_plot_container = '#region_plot_container_' + plot_id;
+    var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
+    if (coverage_stats) {
+        region_chart(coverage_stats, window.variants, region_plot_container);
+        if (window.variants.length) {
+            update_variants();
         }
-        change_region_chart_metric(window.coverage_stats, v, '#region_plot_container');
+    }
+
+    if (!population_plot)
+        $('.coverage_subcat_selectors.' + plot_id).hide();
+    // Change coverage plot
+    $('.coverage_metric_buttons.' + plot_id).change(function () {
+        var v = $(this).attr('id').replace('_covmet_button', '');
+        $('.coverage_subcat_selectors.' + plot_id).hide();
+        if (v == 'covered') {
+            $('#over_x_select_container_' + plot_id).show();
+            v = $('#over_x_select_' + plot_id).val().replace('X', '');
+        } else {
+            if (population_plot)
+                $('#average_select_container_' + plot_id).show();
+            v = $("#average_select_" + plot_id).val();
+        }
+        change_region_chart_metric(coverage_stats, v, region_plot_container);
     });
-    $('#over_x_select').change(function () {
-        change_region_chart_metric(window.coverage_stats, $(this).val().replace('X', ''), '#region_plot_container');
+    $('#over_x_select_' + plot_id).change(function () {
+        change_region_chart_metric(coverage_stats, $(this).val().replace('X', ''), region_plot_container);
     });
-    $('#average_select').change(function () {
-        change_region_chart_metric(window.coverage_stats, $(this).val(), '#region_plot_container');
+    $('#average_select_' + plot_id).change(function () {
+        change_region_chart_metric(coverage_stats, $(this).val(), region_plot_container);
     });
 
 // Change exon diagram
     $('#inverted_checkbox').change(function () {
         setTimeout(function () {
             var v = $('#inverted_checkbox').is(':checked');
-            change_track_chart_variant_size(window.variants, v, '#region_plot_container');
+            change_track_chart_variant_size(window.variants, v, region_plot_container);
         }, 10);
     });
 

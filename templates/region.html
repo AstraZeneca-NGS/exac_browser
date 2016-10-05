@@ -2,20 +2,10 @@
 {% block body %}
     <script type="text/javascript">
         window.coverage_stats = {{ coverage_json|safe }};
+        window.population_coverage_stats = {{ population_coverage_json|safe }};
         window.genes = {{ genes_in_region_json|safe }}
         window.variants = {{ variants_in_region_json|safe }};
         window.table_variants = variants;
-
-        {% if genes_in_region and stop != None %}
-        $(document).ready(function() {
-            if (window.coverage_stats != null) {
-                region_chart(window.coverage_stats, window.variants);
-                {% if variants_in_region %}
-                    update_variants();
-                {% endif %}
-            }
-        });
-        {% endif %}
     </script>
     <div class="container">
         {% if rsid %}
@@ -44,7 +34,16 @@
             {% if stop != None %}
                 <h3>Coverage summary</h3>
                 <div class="row">
-                    {% include 'region_display.html' %}
+                    <h4>Sample plot</h4>
+                    {% with plot_id = 'sample' %}
+                        {% include 'region_display.html' %}
+                    {% endwith %}
+                </div>
+                <div class="row">
+                    <h4>Population plot</h4>
+                    {% with plot_id = 'population' %}
+                        {% include 'region_display.html' %}
+                    {% endwith %}
                 </div>
             {% endif %}
             <div class="section_header">Genes</div>

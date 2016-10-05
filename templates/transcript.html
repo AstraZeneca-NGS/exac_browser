@@ -6,7 +6,10 @@
         window.table_variants = {{ variants_in_transcript_json|safe }};
         window.variants_in_transcript = window.table_variants;
         window.coverage_stats = {{ coverage_stats_json|safe }};
+        window.population_coverage_stats = {{ population_coverage_stats_json|safe }};
         window.gene = {{ gene_json|safe }};
+        window.population_cnvs = {{ population_cnvs_json|safe }};
+        window.population_cnvgenes = {{ population_cnvgenes_json|safe }};
 	    window.cnvs = {{ cnvs_json|safe }};
         window.cnvgenes = {{ cnvgenes_json|safe }};
         $(document).ready(function() {
@@ -48,7 +51,14 @@
         <div class="row">
             <div class="col-md-10 col-md-offset-1">
                 <div class="row">
-                    {% with plot_id = transcript.transcript_id %}
+                    <h4>Sample plot</h4>
+                    {% with plot_id = 'sample' %}
+                        {% include 'transcript_display.html' %}
+                    {% endwith %}
+                </div>
+                <div class="row">
+                    <h4>Population plot</h4>
+                    {% with plot_id = 'population' %}
                         {% include 'transcript_display.html' %}
                     {% endwith %}
                 </div>

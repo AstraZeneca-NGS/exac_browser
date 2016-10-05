@@ -53,13 +53,15 @@
 <script>
 
 $(document).ready(function() {
-    var population_plot = "{{ population_plot }}" == "True";
-    var gene_plot_container = '#gene_plot_container_{{ plot_id }}';
-    var include_utr_checkbox = '#include_utrs_checkbox_{{ plot_id }}';
-    var cnv_svg = 'cnv_svg_{{ plot_id }}';
+    var plot_id = '{{ plot_id }}';
+    var population_plot = plot_id == 'population';
+    var gene_plot_container = '#gene_plot_container_' + plot_id;
+    var include_utr_checkbox = '#include_utrs_checkbox_' + plot_id;
+    var cnv_svg = 'cnv_svg_' + plot_id;
     var transcript = window.transcript;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
-    var variants_in_transcript = !population_plot ? window.variants_in_transcript : window.population_variants_in_transcript;
+    var variants_in_transcript = window.variants_in_transcript;
+    var cnvs = !population_plot ? window.cnvs : window.population_cnvs;
     if ($(window).width() < 768) {
         $(gene_plot_container).css('width', $(window).width() + "px");
     } else {
@@ -77,72 +79,75 @@ $(document).ready(function() {
     coverage_stats = _.filter(coverage_stats, function(d) {
         return d.pos_coding != undefined;
     });
-    $('#avg_coverage_{{ plot_id }}').html(coverage_sum('mean'));
-    $('#avg_coverage_x_{{ plot_id }}').html(coverage_sum('30')*100 + '%');
+    $('#avg_coverage_' + plot_id).html(coverage_sum('mean', coverage_stats));
+    $('#avg_coverage_x_' + plot_id).html(coverage_sum('30', coverage_stats) * 100 + '%');
 
     var new_data = create_new_data(coverage_stats, 'pos_coding');
     var new_data_skip_utr = create_new_data(coverage_stats, 'pos_coding_noutr');
     if (coverage_stats != null) {
-        gene_chart(coverage_stats, new_data_skip_utr, variants_in_transcript, transcript, window.cnvs, gene_plot_container, cnv_svg);
+        gene_chart(coverage_stats, new_data_skip_utr, variants_in_transcript, transcript, cnvs, gene_plot_container,
+                cnv_svg);
         if (variants_in_transcript.length) {
             update_variants();
         }
-        $('#loading_coverage_{{ plot_id }}').hide();
+        $('#loading_coverage_' + plot_id).hide();
     } else {
-        $('#gene_plot_{{ plot_id }}').hide();
-        $('#not_covered_{{ plot_id }}').show();
+        $('#gene_plot_' + plot_id).hide();
+        $('#not_covered_' + plot_id).show();
     }
+    if (!population_plot)
+        $('.coverage_subcat_selectors.' + plot_id).hide();
     // Change coverage plot
-    $('.coverage_metric_buttons.{{ plot_id }}').change(function () {
+    $('.coverage_metric_buttons.' + plot_id).change(function () {
         var v = $(this).attr('id').replace('_covmet_button', '');
-        $('.coverage_subcat_selectors.{{ plot_id }}').hide();
         if (v == 'covered') {
-            $('#over_x_select_container_{{ plot_id }}').show();
-            v = $('#over_x_select_{{ plot_id }}').val().replace('X', '');
+            $('#over_x_select_container_' + plot_id).show();
+            v = $('#over_x_select_' + plot_id).val().replace('X', '');
         } else {
-            $('#average_select_container_{{ plot_id }}').show();
-            v = $("#average_select_{{ plot_id }}").val();
+            if (population_plot)
+                $('#average_select_container_' + plot_id).show();
+            v = $("#average_select_" + plot_id).val();
         }
-        var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
-                gene_plot_container, cnv_svg);
+                gene_plot_container, cnv_svg, cnvs);
     });
-    $('#over_x_select_{{ plot_id }}').change(function () {
-        var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+    $('#over_x_select_' + plot_id).change(function () {
+        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
-        $('#avg_coverage_type_x_{{ plot_id }}').html($(this).val());
-        $('#avg_coverage_x_{{ plot_id }}').html(coverage_sum($(this).val().replace('X', ''))*100 + '%');
+        $('#avg_coverage_type_x_' + plot_id).html($(this).val());
+        $('#avg_coverage_x_' + plot_id).html(coverage_sum($(this).val().replace('X', ''), coverage_stats) * 100 + '%');
         change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val().replace('X', ''),
-                !include_utrs, gene_plot_container, cnv_svg);
+                !include_utrs, gene_plot_container, cnv_svg, cnvs);
     });
-    $('#average_select_{{ plot_id }}').change(function () {
-        var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+    $('#average_select_' + plot_id).change(function () {
+        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
-        $('#avg_coverage_type_{{ plot_id }}').html($(this).val());
-        $('#avg_coverage_{{ plot_id }}').html(coverage_sum($(this).val()));
+        $('#avg_coverage_type_' + plot_id).html($(this).val());
+        $('#avg_coverage_' + plot_id).html(coverage_sum($(this).val(), coverage_stats));
         change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, $(this).val(), !include_utrs,
-                gene_plot_container, cnv_svg);
+                gene_plot_container, cnv_svg, cnvs);
     });
     $(include_utr_checkbox).change(function () {
         setTimeout(function() {
-            var detail = $('.display_coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('display_coverage_', '').replace('_button', '');
-            var v = $('.coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('_covmet_button', '');
-            v = (v == 'covered') ? $('#over_x_select_{{ plot_id }}').val().replace('X', '') : $("#average_select_{{ plot_id }}").val();
+            var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+            var v = $('.coverage_metric_buttons' + plot_id +'.active').attr('id').replace('_covmet_button', '');
+            v = (v == 'covered') ? $('#over_x_select_' + plot_id).val().replace('X', '') : $("#average_select_" + plot_id).val();
             var include_utrs = $(include_utr_checkbox).is(':checked');
             var plot_data = include_utrs ? new_data : new_data_skip_utr;
             change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
-                    gene_plot_container, cnv_svg);
+                    gene_plot_container, cnv_svg, cnvs);
         }, 10);
     });
 
 // Change exon diagram
-    $('#inverted_checkbox_{{ plot_id }}').change(function () {
+    $('#inverted_checkbox_' + plot_id).change(function () {
         setTimeout(function () {
-            var v = $('#inverted_checkbox_{{ plot_id }}').is(':checked');
+            var v = $('#inverted_checkbox_' + plot_id).is(':checked');
             change_track_chart_variant_size(variants_in_transcript, v, gene_plot_container);
         }, 10);
     });
@@ -151,24 +156,25 @@ $(document).ready(function() {
         setTimeout(function() {
             update_variants();
             update_cnvs();
-            refresh_links("{{ plot_id }}");
+            refresh_links(plot_id, cnvs);
         }, 10);
     });
 
-    $('.display_coverage_metric_buttons.{{ plot_id }}').change(function () {
+    $('.display_coverage_metric_buttons.' + plot_id).change(function () {
         var detail = $(this).attr('id').replace('display_coverage_', '').replace('_button', '');
-        var v = $('.coverage_metric_buttons.{{ plot_id }}.active').attr('id').replace('_covmet_button', '');
+        var v = $('.coverage_metric_buttons' + plot_id +'.active').attr('id').replace('_covmet_button', '');
         if (v == 'covered') {
-            $('#over_x_select_container_{{ plot_id }}').show();
-            v = $('#over_x_select_{{ plot_id }}').val().replace('X', '');
+            $('#over_x_select_container_' + plot_id).show();
+            v = $('#over_x_select_' + plot_id).val().replace('X', '');
         } else {
-            $('#average_select_container_{{ plot_id }}').show();
-            v = $("#average_select_{{ plot_id }}").val();
+            if (plot_id != 'sample')
+                $('#average_select_container_' + plot_id).show();
+            v = $("#average_select_" + plot_id).val();
         }
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
-                gene_plot_container, cnv_svg);
+                gene_plot_container, cnv_svg, cnvs);
     });
 
 {#    $("#coverage_plot_download").on('click', function() {#}
@@ -183,10 +189,10 @@ $(document).ready(function() {
         var include_utrs = $('#include_utrs_checkbox').is(':checked');
         var detail = get_plot_detail();
 
-        make_cnvs_svg(window.cnvs, window.transcript, detail, !include_utrs, gene_plot_container, cnv_svg);
+        make_cnvs_svg(cnvs, window.transcript, detail, !include_utrs, gene_plot_container, cnv_svg);
 
     });
 
-    refresh_links("{{ plot_id }}");
+    refresh_links(plot_id, cnvs);
 });
 </script>

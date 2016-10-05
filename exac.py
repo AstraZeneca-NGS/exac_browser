@@ -59,7 +59,8 @@ app.config.update(dict(
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
     SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
     POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
-    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'chr*.txt.gz'),
+    BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*/'),
+    BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '%s', 'chr*.txt.gz'),
     FILTERED_REGIONS_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'filtered_regions*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI_CNV-final.txt.gz'),
@@ -160,19 +161,23 @@ def load_base_coverage(project_name=None, genome=None):
     procs = []
     for project_name, genome in projects:
         db = full_db[get_project_key(project_name, genome)]
-        db.base_coverage.drop()
-        print("Dropped db.base_coverage for " + project_name)
-        # load coverage first; variant info will depend on coverage
-        db.base_coverage.ensure_index('xpos')
-
-        coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name))
-        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-        # random.shuffle(app.config['BASE_COVERAGE_FILES'])
-        max_procs = max(1, num_procs / len(projects))
-        for i in range(max_procs):
-            p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db.base_coverage))
-            p.start()
-            procs.append(p)
+        db.samples.drop()
+        sample_dirs = glob.glob(app.config['BASE_COVERAGE_DIRS'] % (genome, project_name))
+        for sample_dir in sample_dirs:
+            path, sample_name = os.path.split(os.path.dirname(sample_dir))
+            db[sample_name].base_coverage.drop()
+            print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
+            db.samples.insert({'name': sample_name})
+            # load coverage first; variant info will depend on coverage
+            db[sample_name].base_coverage.ensure_index('xpos')
+            coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
+            num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+            # random.shuffle(app.config['BASE_COVERAGE_FILES'])
+            max_procs = max(1, num_procs / len(projects))
+            for i in range(max_procs):
+                p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db[sample_name].base_coverage))
+                p.start()
+                procs.append(p)
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
@@ -651,6 +656,12 @@ def check_project_exists(project_name):
         abort(404)
 
 
+def check_sample_exists(genome, project_name, sample_name):
+    full_db = get_db()
+    samples = lookups.get_project_samples(full_db, project_name, genome)
+    if not samples or sample_name not in samples:
+        abort(404)
+
 # @app.teardown_appcontext
 # def close_db(error):
 #     """Closes the database again at the end of the request."""
@@ -667,15 +678,29 @@ def homepage():
 def project_page(project_name, project_genome):
     check_project_exists(project_name)
     db = get_db()
+    sample_names = sorted(lookups.get_project_samples(db, project_name, project_genome), key=natural_key)
     filtered_regions = lookups.get_filtered_regions_in_project(db, project_name, project_genome)
     depth_thresholds = sorted(list(set([r['depth_threshold'] for r in filtered_regions])), key=natural_key)
     t = render_template(
         'project_page.html',
         project_name=project_name,
         genome=project_genome,
+        sample_names=sample_names,
         filtered_regions=filtered_regions,
         filtered_regions_json=JSONEncoder().encode(filtered_regions),
         depth_thresholds=depth_thresholds,
+    )
+    return t
+
+
+@app.route('/<project_genome>/<project_name>/<sample_name>/')
+def sample_page(sample_name, project_name, project_genome):
+    check_sample_exists(project_genome, project_name, sample_name)
+    t = render_template(
+        'sample_page.html',
+        project_name=project_name,
+        genome=project_genome,
+        sample_name=sample_name
     )
     return t
 
@@ -706,27 +731,27 @@ def awesome_project_autocomplete(query):
     return Response(json.dumps([{'value': s} for s in suggestions]),  mimetype='application/json')
 
 
-@app.route('/<project_genome>/<project_name>/awesome')
-def awesome(project_name, project_genome):
+@app.route('/<project_genome>/<project_name>/<sample_name>/awesome')
+def awesome(project_genome, sample_name, project_name):
     db = get_db()
     query = request.args.get('query')
-    datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, query)
+    datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, sample_name, query)
 
     print "Searched for %s: %s" % (datatype, identifier)
     if datatype == 'gene':
-        return redirect('/{}/{}/gene/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/gene/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'transcript':
-        return redirect('/{}/{}/transcript/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/transcript/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'variant':
         return redirect('/{}/{}/variant/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'region':
-        return redirect('/{}/{}/region/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/region/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'dbsnp_variant_set':
-        return redirect('/{}/{}/dbsnp/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/dbsnp/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'error':
-        return redirect('/{}/{}/error/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/error/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'not_found':
-        return redirect('/{}/{}/not_found/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/not_found/{}'.format(project_genome, project_name, sample_name, identifier))
     else:
         raise Exception
 
@@ -879,35 +904,39 @@ def variant_page(project_name, project_genome, variant_str):
         abort(404)
 
 
-@app.route('/<project_genome>/<project_name>/gene/<gene_id>')
-def gene_page(project_name, project_genome, gene_id):
+@app.route('/<project_genome>/<project_name>/<sample_name>/gene/<gene_id>')
+def gene_page(sample_name, project_name, project_genome, gene_id):
     check_project_exists(project_name)
     # if gene_id in GENES_TO_CACHE:
     #    return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
     # else:
-    return get_gene_page_content(project_name, project_genome, gene_id)
+    return get_gene_page_content(sample_name, project_name, project_genome, gene_id)
 
 
-def get_gene_page_content(project_name, project_genome, gene_id):
+def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
     db = get_db()
     try:
         gene = lookups.get_gene(db, project_genome, gene_id)
         if gene is None:
             abort(404)
-        cache_key = 't-gene-{}-{}-{}'.format(project_genome, project_name, gene_id)
+        cache_key = 't-gene-{}-{}-{}-{}'.format(project_genome, project_name, sample_name, gene_id)
         t = cache.get(cache_key)
         if t is None:
-            variants_in_gene = lookups.get_variants_in_gene(db, project_name, project_genome, gene_id)
+            variants_in_gene = lookups.get_variants_in_gene(db, project_name, project_genome, gene_id, sample_name)
             transcripts_in_gene = lookups.get_transcripts_in_gene(db, project_genome, gene_id)
 
             # Get some canonical transcript and corresponding info
             transcript_id = gene['canonical_transcript']
             transcript = lookups.get_transcript(db, project_genome, transcript_id)
-            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
-            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, project_name, project_genome)
-            population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, use_population_data=True)
-            cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
-            cnvs_per_gene = lookups.get_cnvs(db, gene_id)
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id, sample_name)
+            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
+                                                                 project_name, project_genome, sample_name)
+            population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
+                                                                            use_population_data=True)
+            cnvs_in_transcript = None
+            cnvs_per_gene = None
+            population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            population_cnvs_per_gene = lookups.get_cnvs(db, gene_id)
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
             constraint_info = lookups.get_constraint_for_transcript(db, project_genome, transcript_id)
 
@@ -933,6 +962,10 @@ def get_gene_page_content(project_name, project_genome, gene_id):
                 cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
                 cnvgenes_json=JSONEncoder().encode(cnvs_per_gene),
+                population_cnvs = population_cnvs_in_transcript,
+                population_cnvs_json=JSONEncoder().encode(population_cnvs_in_transcript),
+                population_cnvgenes = population_cnvs_per_gene,
+                population_cnvgenes_json=JSONEncoder().encode(population_cnvs_per_gene),
                 constraint=constraint_info
             )
             cache.set(cache_key, t, timeout=1000*60)
@@ -943,8 +976,8 @@ def get_gene_page_content(project_name, project_genome, gene_id):
         abort(404)
 
 
-@app.route('/<project_genome>/<project_name>/transcript/<transcript_id>')
-def transcript_page(project_name, project_genome, transcript_id):
+@app.route('/<project_genome>/<project_name>/<sample_name>/transcript/<transcript_id>')
+def transcript_page(sample_name, project_name, project_genome, transcript_id):
     check_project_exists(project_name)
     db = get_db()
     try:
@@ -956,10 +989,15 @@ def transcript_page(project_name, project_genome, transcript_id):
 
             gene = lookups.get_gene(db, project_genome, transcript['gene_id'])
             gene['transcripts'] = lookups.get_transcripts_in_gene(db, project_genome, transcript['gene_id'])
-            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id)
-            cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
-            cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
-            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING, project_name, project_genome)
+            variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id, sample_name)
+            cnvs_in_transcript = None
+            cnvs_per_gene = None
+            population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            population_cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
+            coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING,
+                                                                 transcript['xstop'] + EXON_PADDING, project_name, project_genome, sample_name)
+            population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
+                                                                            use_population_data=True)
 
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
 
@@ -973,12 +1011,18 @@ def transcript_page(project_name, project_genome, transcript_id):
                 variants_in_transcript_json=JSONEncoder().encode(variants_in_transcript),
                 coverage_stats=coverage_stats,
                 coverage_stats_json=JSONEncoder().encode(coverage_stats),
+                population_coverage_stats=population_coverage_stats,
+                population_coverage_stats_json=JSONEncoder().encode(population_coverage_stats),
                 gene=gene,
                 gene_json=JSONEncoder().encode(gene),
                 cnvs = cnvs_in_transcript,
                 cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
-                cnvgenes_json=JSONEncoder().encode(cnvs_per_gene)
+                cnvgenes_json=JSONEncoder().encode(cnvs_per_gene),
+                population_cnvs = population_cnvs_in_transcript,
+                population_cnvs_json=JSONEncoder().encode(population_cnvs_in_transcript),
+                population_cnvgenes = population_cnvs_per_gene,
+                population_cnvgenes_json=JSONEncoder().encode(population_cnvs_per_gene),
             )
             cache.set(cache_key, t, timeout=1000*60)
         print 'Rendering transcript: %s' % transcript_id
@@ -988,8 +1032,8 @@ def transcript_page(project_name, project_genome, transcript_id):
         abort(404)
 
 
-@app.route('/<project_genome>/<project_name>/region/<region_id>')
-def region_page(project_name, project_genome, region_id):
+@app.route('/<project_genome>/<project_name>/<sample_name>/region/<region_id>')
+def region_page(project_name, project_genome, sample_name, region_id):
     db = get_db()
     try:
         region = region_id.split('-')
@@ -1020,10 +1064,11 @@ def region_page(project_name, project_genome, region_id):
                 start -= 20
                 stop += 20
             genes_in_region = lookups.get_genes_in_region(db, project_genome, chrom, start, stop)
-            variants_in_region = lookups.get_variants_in_region(db, project_name, project_genome, chrom, start, stop)
+            variants_in_region = lookups.get_variants_in_region(db, project_name, project_genome, chrom, start, stop, sample_name)
             xstart = get_xpos(chrom, start)
             xstop = get_xpos(chrom, stop)
-            coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, project_name, project_genome)
+            coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, project_name, project_genome, sample_name)
+            population_coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, use_population_data=True)
             t = render_template(
                 'region.html',
                 project_name=project_name,
@@ -1037,6 +1082,8 @@ def region_page(project_name, project_genome, region_id):
                 stop=stop,
                 coverage=coverage_array,
                 coverage_json=JSONEncoder().encode(coverage_array),
+                population_coverage=population_coverage_array,
+                population_coverage_json=JSONEncoder().encode(population_coverage_array),
             )
         print 'Rendering region: %s' % region_id
         return t

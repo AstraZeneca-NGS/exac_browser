@@ -20,9 +20,6 @@ var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, containe
     var cnv_filter_status = $('#filtered_checkbox').is(":checked");
     var m = get_max_cnv(_cnvs, cnv_filter_status);
 
-
-
-
     var svg = d3.select(container).append("svg")
         .attr("width", chart_width + cnv_chart_margin.left + cnv_chart_margin.right)
         .attr("height",100 + 40)
@@ -418,8 +415,8 @@ function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container,
 //        .attr("ry", 6);
 
            // call to separate function to make the CNVs plot.
-           var detail = get_plot_detail();
-           make_cnvs_svg(_cnvs, _transcript, detail, true, container, cnv_svg);
+            var detail = get_plot_detail();
+            if (_cnvs && _cnvs.length > 0) make_cnvs_svg(_cnvs, _transcript, detail, true, container, cnv_svg);
 }
 
 function variant_colors(d) {
@@ -432,7 +429,7 @@ function variant_colors(d) {
     }
 }
 
-function change_coverage_chart(data, new_data, variant_data, _transcript, scale_type, metric, skip_utrs, container, cnv_svg) {
+function change_coverage_chart(data, new_data, variant_data, _transcript, scale_type, metric, skip_utrs, container, cnv_svg, _cnvs) {
     var coords = skip_utrs ? 'pos_coding_noutr' : 'pos_coding';
     var max_cov = (metric == 'mean' || metric == 'median') ? d3.max(data, function(d) { return d[metric]; }) : 1;
     var coding_coordinate_params = get_coding_coordinate_params(_transcript, skip_utrs);
@@ -537,7 +534,8 @@ function change_coverage_chart(data, new_data, variant_data, _transcript, scale_
         .call(yAxis);
 
     $("#" + cnv_svg).remove();
-    make_cnvs_svg(window.cnvs, _transcript, scale_type, skip_utrs, container, cnv_svg);
+    if (_cnvs && _cnvs.length > 0)
+        make_cnvs_svg(_cnvs, _transcript, scale_type, skip_utrs, container, cnv_svg);
 }
 
 function create_new_data(data, coords) {
@@ -568,12 +566,12 @@ function create_new_data(data, coords) {
     return new_data;
 }
 
-function coverage_sum(key) {
+function coverage_sum(key, coverage_stats) {
     var total = 0;
-    $.map(window.coverage_stats, function(entry) {
+    $.map(coverage_stats, function(entry) {
         total += entry[key];
     });
-    return (total/window.coverage_stats.length).toPrecision(4);
+    return (total / coverage_stats.length).toPrecision(4);
 }
 
 function get_plot_detail() {
@@ -589,9 +587,10 @@ function get_plot_detail() {
 }
 
 
-function refresh_links(plot_id) {
+function refresh_links(plot_id, _cnvs) {
     var gene_plot_container = "gene_plot_container_" + plot_id;
     $("#coverage_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 0));
     $("#exon_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 1));
-    $("#cnv_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 2));
+    if (_cnvs && _cnvs.length > 0)
+        $("#cnv_plot_download_" + plot_id).attr('href', set_plot_image(gene_plot_container, 2));
 }
