@@ -30,6 +30,11 @@
         ga('send', 'pageview');
     </script>
     <script type="text/javascript">
+        function selectSampleName(sample_name) {
+            var prev_sample_name = "{{  sample_name }}";
+            if (sample_name != prev_sample_name)
+                window.location.href = window.location.toString().replace(prev_sample_name, sample_name);
+        }
         $(function() {
             var features = new Bloodhound({
               datumTokenizer: Bloodhound.tokenizers.obj.whitespace('value'),
@@ -51,7 +56,7 @@
                 }
             );
             searchBar.bind('typeahead:selected', function(obj, datum) {
-                window.location.href = '/{{ genome }}/{{ project_name }}/awesome?query=' + datum.value;
+                window.location.href = '/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=' + datum.value;
             });
 
             var projects = new Bloodhound({
@@ -92,6 +97,10 @@
             projectBar.bind('typeahead:selected', function(obj, datum) {
                 window.location.href = '/awesomeproject?query=' + datum.value;
             });
+            var sampleSelector = document.getElementById('sample-selector');
+            var sampleName = "{{ sample_name }}";
+            if (!sampleName)
+                sampleSelector.style.display = 'none';
         });
     </script>
 </head>
@@ -107,13 +116,24 @@
             </button>
             <a class="navbar-brand" href="/" style="color: white; font-weight: bold; float: left; font-size: 15px;">ExAC Browser Beta</a>
             <div class="col-xs-5" id="navbar_form_container">
-                <form action="/{{ genome }}/{{ project_name }}/awesome" class="navbar-form" role="search">
+                <form action="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome" class="navbar-form" role="search">
                     <div class="form-group" id="navbar-awesomebar">
                         <input type="submit" style="display: none;"/>
                         <input id="navbar-searchbox-input" name="query" class="form-control awesomebar" type="text" placeholder="Gene, transcript, variant, or region"/>
                         <input type="submit" style="position: absolute; left: -9999px"/>
                     </div>
                 </form>
+            </div>
+        </div>
+        <div style="display: block; float: left; padding: 8px;">
+            <div id="sample-selector" class="dropdown">
+                <button id="sample-select-btn" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
+                    {{ sample_name }}<span class="caret"></span></button>
+                <ul class="dropdown-menu">
+                    {% for sample in sample_names %}
+                        <li><a href="#" href="#" onclick="selectSampleName('{{ sample }}');">{{ sample }}</a></li>
+                    {% endfor %}
+                </ul>
             </div>
         </div>
         <!-- Collect the nav links, forms, and other content for toggling -->

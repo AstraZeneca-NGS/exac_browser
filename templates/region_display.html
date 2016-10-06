@@ -1,7 +1,7 @@
 <div id="region_plot">
     {% include 'coverage_selectors.html' %}
     <br/>
-    <div id="region_plot_container"></div>
+    <div id="region_plot_container_{{ plot_id }}"></div>
 </div>
 <div id="not_covered" style="display: none;">
     No coverage for this region.
@@ -119,7 +119,7 @@ function region_chart(data, variant_data, container) {
         .enter()
         .append("a")
         .attr('class', 'track_variant_link')
-        .attr("xlink:href", function(d, i) { return "/{{ genome }}/{{ project_name }}/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
+        .attr("xlink:href", function(d, i) { return "/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
         .attr("data-toggle", "tooltip")
         .attr('filter_status', function(d) {
             return d.filter;
@@ -217,9 +217,10 @@ $(document).ready(function() {
     var population_plot = plot_id == 'population';
     var region_plot_container = '#region_plot_container_' + plot_id;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
+    var variants = !population_plot ? window.variants : [];
     if (coverage_stats) {
-        region_chart(coverage_stats, window.variants, region_plot_container);
-        if (window.variants.length) {
+        region_chart(coverage_stats, variants, region_plot_container);
+        if (variants.length) {
             update_variants();
         }
     }
@@ -251,7 +252,7 @@ $(document).ready(function() {
     $('#inverted_checkbox').change(function () {
         setTimeout(function () {
             var v = $('#inverted_checkbox').is(':checked');
-            change_track_chart_variant_size(window.variants, v, region_plot_container);
+            change_track_chart_variant_size(variants, v, region_plot_container);
         }, 10);
     });
 

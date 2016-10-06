@@ -161,7 +161,7 @@
                     {% for allele in variant.orig_alt_alleles %}
                         {% if allele != variant.variant_id %}
                             <li>
-                                <a href="/{{ genome }}/{{ project_name }}/variant/{{ allele }}">{{ allele }}</a>
+                                <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/{{ allele }}">{{ allele }}</a>
                             </li>
                         {% endif %}
                     {% endfor %}

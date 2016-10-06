@@ -658,8 +658,8 @@ def check_project_exists(project_name):
 
 def check_sample_exists(genome, project_name, sample_name):
     full_db = get_db()
-    samples = lookups.get_project_samples(full_db, project_name, genome)
-    if not samples or sample_name not in samples:
+    sample_names = lookups.get_project_samples(full_db, project_name, genome)
+    if not sample_names or sample_name not in sample_names:
         abort(404)
 
 # @app.teardown_appcontext
@@ -678,7 +678,7 @@ def homepage():
 def project_page(project_name, project_genome):
     check_project_exists(project_name)
     db = get_db()
-    sample_names = sorted(lookups.get_project_samples(db, project_name, project_genome), key=natural_key)
+    sample_names = lookups.get_project_samples(db, project_name, project_genome)
     filtered_regions = lookups.get_filtered_regions_in_project(db, project_name, project_genome)
     depth_thresholds = sorted(list(set([r['depth_threshold'] for r in filtered_regions])), key=natural_key)
     t = render_template(
@@ -696,10 +696,13 @@ def project_page(project_name, project_genome):
 @app.route('/<project_genome>/<project_name>/<sample_name>/')
 def sample_page(sample_name, project_name, project_genome):
     check_sample_exists(project_genome, project_name, sample_name)
+    db = get_db()
+    sample_names = lookups.get_project_samples(db, project_name, project_genome)
     t = render_template(
         'sample_page.html',
         project_name=project_name,
         genome=project_genome,
+        sample_names=sample_names,
         sample_name=sample_name
     )
     return t
@@ -743,7 +746,7 @@ def awesome(project_genome, sample_name, project_name):
     elif datatype == 'transcript':
         return redirect('/{}/{}/{}/transcript/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'variant':
-        return redirect('/{}/{}/variant/{}'.format(project_genome, project_name, identifier))
+        return redirect('/{}/{}/{}/variant/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'region':
         return redirect('/{}/{}/{}/region/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'dbsnp_variant_set':
@@ -767,8 +770,8 @@ def awesome_project():
     return redirect('/not_found/{}'.format(query))
 
 
-@app.route('/<project_genome>/<project_name>/variant/<variant_str>')
-def variant_page(project_name, project_genome, variant_str):
+@app.route('/<project_genome>/<project_name>/<sample_name>/variant/<variant_str>')
+def variant_page(project_name, project_genome, sample_name, variant_str):
     check_project_exists(project_name)
     db = get_db()
     try:
@@ -794,7 +797,7 @@ def variant_page(project_name, project_genome, variant_str):
             for annotation in variant['vep_annotations']:
                 annotation['HGVS'] = get_proper_hgvs(annotation)
                 consequences.setdefault(annotation['major_consequence'], {}).setdefault(annotation['Gene_Name'], []).append(annotation)
-        base_coverage = lookups.get_coverage_for_bases(db, xpos, xpos + len(ref) - 1, project_name, project_genome)
+        base_coverage = lookups.get_coverage_for_bases(db, xpos, xpos + len(ref) - 1, project_name, project_genome, sample_name)
         any_covered = any([x['has_coverage'] for x in base_coverage])
         metrics = lookups.get_metrics(db, project_name, project_genome, variant)
 
@@ -859,10 +862,10 @@ def variant_page(project_name, project_genome, variant_str):
             "%s-" % chrom)
 
         read_group = None
-        sample_names = []
-        if 'sample_names' in variant:
-            sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
-                            if variant['sample_data'][idx]]
+        sample_names = [sample_name]
+        # if 'sample_names' in variant:
+        #    sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
+        #                    if variant['sample_data'][idx]]
 
         if 'transcripts' in variant and variant['transcripts']:
             for transcript_id in variant['transcripts']:
@@ -922,6 +925,7 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
         cache_key = 't-gene-{}-{}-{}-{}'.format(project_genome, project_name, sample_name, gene_id)
         t = cache.get(cache_key)
         if t is None:
+            sample_names = lookups.get_project_samples(db, project_name, project_genome)
             variants_in_gene = lookups.get_variants_in_gene(db, project_name, project_genome, gene_id, sample_name)
             transcripts_in_gene = lookups.get_transcripts_in_gene(db, project_genome, gene_id)
 
@@ -942,6 +946,8 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
 
             t = render_template(
                 'gene.html',
+                sample_names=sample_names,
+                sample_name=sample_name,
                 project_name=project_name,
                 genome=project_genome,
                 gene=gene,
@@ -986,7 +992,7 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
         cache_key = 't-transcript-{}-{}-{}'.format(project_genome, project_name, transcript_id)
         t = cache.get(cache_key)
         if t is None:
-
+            sample_names = lookups.get_project_samples(db, project_name, project_genome)
             gene = lookups.get_gene(db, project_genome, transcript['gene_id'])
             gene['transcripts'] = lookups.get_transcripts_in_gene(db, project_genome, transcript['gene_id'])
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id, sample_name)
@@ -1003,6 +1009,8 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
 
             t = render_template(
                 'transcript.html',
+                sample_names=sample_names,
+                sample_name=sample_name,
                 project_name=project_name,
                 genome=project_genome,
                 transcript=transcript,
@@ -1041,6 +1049,7 @@ def region_page(project_name, project_genome, sample_name, region_id):
         t = cache.get(cache_key)
         print 'Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id)
         if t is None:
+            sample_names = lookups.get_project_samples(db, project_name, project_genome)
             chrom = region[0]
             start = None
             stop = None
@@ -1051,6 +1060,8 @@ def region_page(project_name, project_genome, sample_name, region_id):
             if start is None or stop - start > REGION_LIMIT or stop < start:
                 return render_template(
                     'region.html',
+                    sample_names=sample_names,
+                    sample_name=sample_name,
                     project_name=project_name,
                     genome=project_genome,
                     genes_in_region=None,
@@ -1071,6 +1082,8 @@ def region_page(project_name, project_genome, sample_name, region_id):
             population_coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, use_population_data=True)
             t = render_template(
                 'region.html',
+                sample_names=sample_names,
+                sample_name=sample_name,
                 project_name=project_name,
                 genome=project_genome,
                 genes_in_region=genes_in_region,

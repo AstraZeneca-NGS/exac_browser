@@ -14,7 +14,8 @@ def get_project_samples(db, project_name, genome):
     samples = list(db[get_project_key(project_name, genome)].samples.find())
     if not samples:
         return None
-    return [sample['name'] for sample in samples]
+    sample_names = sorted([sample['name'] for sample in samples], key=natural_key)
+    return sample_names
 
 
 def get_gene(db, genome, gene_id):

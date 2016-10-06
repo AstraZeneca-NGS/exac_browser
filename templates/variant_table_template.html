@@ -53,7 +53,7 @@
             indel="<%= variant.indel %>"
           >
             <td class="omit_csv">
-                <a href="/{{ genome }}/{{ project_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
+                <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
                 <%= variant.chrom %>:<%= variant.pos %>
                 <% if (variant.ref.length > 20) { %>
                     <%= variant.ref.slice(0,20) %>...
@@ -93,7 +93,8 @@
             <td>
                 <% _.each(variant.flags, function(flag) { %>
                     <% if (flag == 'LoF flag') { span_tag = 'warning' } else { span_tag = 'danger' } %>
-                    <a href="/{{ genome }}/{{ project_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank"><span class="label label-<%= span_tag %> tooltip-table-header" data-tooltip="Variant annotation dubious: &#xa; see variant page for details"><%= flag %></span></a>
+                    <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
+                        <span class="label label-<%= span_tag %> tooltip-table-header" data-tooltip="Variant annotation dubious: &#xa; see variant page for details"><%= flag %></span></a>
                 <% }); %></td>
             <td> <%= variant.allele_count %> </td>
             <td class='hidden-xs'> <%= variant.allele_num %> </td>

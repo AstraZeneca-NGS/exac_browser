@@ -7,7 +7,7 @@
         window.table_regions = {{ filtered_regions_json|safe }};
     </script>
     <div class="container">
-        <h1 id="home-title">ExAC Browser (Beta) | {{ project_name }} | {{ sample_name }}</h1>
+        <h1 id="home-title">ExAC Browser (Beta) | <a href="/{{ genome }}/{{ project_name }}/'>{{ project_name }}</a> | {{ sample_name }}</h1>
         <div class="row">
             <div class="col-md-12">
                 <div id="home-searchbox">
@@ -19,7 +19,7 @@
                     <p class="text-muted">
                         Examples - Gene: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=TP53">TP53</a>,
                         Transcript: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/transcript/NM_000546">NM_000546</a>,
-                        Variant: <a href="/{{ genome }}/{{ project_name }}/variant/17-7579311-C-A">17-7579311-C-A</a>,
+                        Variant: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/17-7579311-C-A">17-7579311-C-A</a>,
                         Multi-allelic variant: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=rs371409680">rs371409680</a>,
                         Region: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/region/17-7579300-7579900">17:7579300-7579900</a>
                     </p>

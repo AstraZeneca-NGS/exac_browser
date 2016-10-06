@@ -193,6 +193,7 @@ csq_order = ["transcript_ablation",
 "coding_sequence_variant",
 "mature_miRNA_variant",
 "5_prime_UTR_variant",
+"5_prime_UTR_premature_start_codon_gain_variant",
 "3_prime_UTR_variant",
 "non_coding_transcript_exon_variant",
 "non_coding_exon_variant",  # deprecated

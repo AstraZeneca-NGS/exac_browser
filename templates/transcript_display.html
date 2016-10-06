@@ -60,7 +60,7 @@ $(document).ready(function() {
     var cnv_svg = 'cnv_svg_' + plot_id;
     var transcript = window.transcript;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
-    var variants_in_transcript = window.variants_in_transcript;
+    var variants_in_transcript = !population_plot ? window.variants_in_transcript : [];
     var cnvs = !population_plot ? window.cnvs : window.population_cnvs;
     if ($(window).width() < 768) {
         $(gene_plot_container).css('width', $(window).width() + "px");
@@ -70,6 +70,9 @@ $(document).ready(function() {
     precalc_coding_coordinates(transcript, coverage_stats, 'pos');
     precalc_coding_coordinates(transcript, variants_in_transcript, 'pos');
 
+    if (!cnvs || cnvs.length == 0) {
+        $('#cnv_plot_download_' + plot_id).hide();
+    }
     // only show variants that have a coding coordinate
     variants_in_transcript = _.filter(variants_in_transcript, function(variant) {
         return variant.pos_coding != undefined;
@@ -108,14 +111,14 @@ $(document).ready(function() {
                 $('#average_select_container_' + plot_id).show();
             v = $("#average_select_" + plot_id).val();
         }
-        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+        var detail = $('.display_coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         change_coverage_chart(coverage_stats, plot_data, variants_in_transcript, transcript, detail, v, !include_utrs,
                 gene_plot_container, cnv_svg, cnvs);
     });
     $('#over_x_select_' + plot_id).change(function () {
-        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+        var detail = $('.display_coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         $('#avg_coverage_type_x_' + plot_id).html($(this).val());
@@ -124,7 +127,7 @@ $(document).ready(function() {
                 !include_utrs, gene_plot_container, cnv_svg, cnvs);
     });
     $('#average_select_' + plot_id).change(function () {
-        var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+        var detail = $('.display_coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
         var include_utrs = $(include_utr_checkbox).is(':checked');
         var plot_data = include_utrs ? new_data : new_data_skip_utr;
         $('#avg_coverage_type_' + plot_id).html($(this).val());
@@ -134,8 +137,8 @@ $(document).ready(function() {
     });
     $(include_utr_checkbox).change(function () {
         setTimeout(function() {
-            var detail = $('.display_coverage_metric_buttons' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
-            var v = $('.coverage_metric_buttons' + plot_id +'.active').attr('id').replace('_covmet_button', '');
+            var detail = $('.display_coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('display_coverage_', '').replace('_button', '');
+            var v = $('.coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('_covmet_button', '');
             v = (v == 'covered') ? $('#over_x_select_' + plot_id).val().replace('X', '') : $("#average_select_" + plot_id).val();
             var include_utrs = $(include_utr_checkbox).is(':checked');
             var plot_data = include_utrs ? new_data : new_data_skip_utr;
@@ -162,7 +165,7 @@ $(document).ready(function() {
 
     $('.display_coverage_metric_buttons.' + plot_id).change(function () {
         var detail = $(this).attr('id').replace('display_coverage_', '').replace('_button', '');
-        var v = $('.coverage_metric_buttons' + plot_id +'.active').attr('id').replace('_covmet_button', '');
+        var v = $('.coverage_metric_buttons.' + plot_id +'.active').attr('id').replace('_covmet_button', '');
         if (v == 'covered') {
             $('#over_x_select_container_' + plot_id).show();
             v = $('#over_x_select_' + plot_id).val().replace('X', '');
@@ -188,8 +191,8 @@ $(document).ready(function() {
         $("#" + cnv_svg).remove();
         var include_utrs = $('#include_utrs_checkbox').is(':checked');
         var detail = get_plot_detail();
-
-        make_cnvs_svg(cnvs, window.transcript, detail, !include_utrs, gene_plot_container, cnv_svg);
+        if (cnvs && cnvs.length > 0)
+            make_cnvs_svg(cnvs, window.transcript, detail, !include_utrs, gene_plot_container, cnv_svg);
 
     });
 
