@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import itertools
+
 import json
 import os
 from os.path import basename
@@ -13,6 +14,9 @@ import logging
 import lookups
 import random
 import sys
+import socket
+from os import environ
+
 from utils import *
 
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify, send_from_directory
@@ -33,8 +37,17 @@ import time
 logging.getLogger().addHandler(logging.StreamHandler())
 logging.getLogger().setLevel(logging.INFO)
 
+hostname = socket.gethostname()
+is_local = 'local' in hostname or 'Home' in hostname or environ.get('PYTHONUNBUFFERED')
+
+if is_local:
+    HOST_IP = 'localhost'
+else:
+    HOST_IP = '172.18.72.171'
+
 ADMINISTRATORS = (
-    'exac.browser.errors@gmail.com',
+    'vladislav.sav@gmail.com',
+    # 'exac.browser.errors@gmail.com',
 )
 
 app = Flask(__name__)
@@ -61,6 +74,8 @@ app.config.update(dict(
     POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
     BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*/'),
     BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '%s', 'chr*.txt.gz'),
+    PROJECT_BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '*/'),
+    PROJECT_BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'chr*.txt.gz'),
     FILTERED_REGIONS_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', 'filtered_regions*.txt.gz'),
     DBNSFP_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'dbNSFP2.6_gene.gz'),
     CONSTRAINT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'forweb_cleaned_exac_r03_march16_z_data_pLI_CNV-final.txt.gz'),
@@ -152,6 +167,17 @@ def load_population_coverage():
     return procs
 
 
+def _load_one(procs, projects, coverage_files, coverage):
+    # load coverage first; variant info will depend on coverage
+    coverage.ensure_index('xpos')
+    num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+    max_procs = max(1, num_procs / len(projects))
+    for i in range(max_procs):
+        p = Process(target=load_coverage, args=(coverage_files, i, num_procs, coverage))
+        p.start()
+        procs.append(p)
+
+
 def load_base_coverage(project_name=None, genome=None):
     full_db = get_db()
     if project_name:
@@ -162,22 +188,20 @@ def load_base_coverage(project_name=None, genome=None):
     for project_name, genome in projects:
         db = full_db[get_project_key(project_name, genome)]
         db.samples.drop()
+        db.base_coverage.drop()
+        print("Dropped db.base_coverage for " + project_name)
+        project_coverage_files = glob.glob(app.config['PROJECT_BASE_COVERAGE_FILES'] % (genome, project_name))
+        _load_one(procs, projects, project_coverage_files, db.base_coverage)
+
         sample_dirs = glob.glob(app.config['BASE_COVERAGE_DIRS'] % (genome, project_name))
         for sample_dir in sample_dirs:
             path, sample_name = os.path.split(os.path.dirname(sample_dir))
             db[sample_name].base_coverage.drop()
             print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
             db.samples.insert({'name': sample_name})
-            # load coverage first; variant info will depend on coverage
-            db[sample_name].base_coverage.ensure_index('xpos')
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
-            num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-            # random.shuffle(app.config['BASE_COVERAGE_FILES'])
-            max_procs = max(1, num_procs / len(projects))
-            for i in range(max_procs):
-                p = Process(target=load_coverage, args=(coverage_files, i, num_procs, db[sample_name].base_coverage))
-                p.start()
-                procs.append(p)
+            if coverage_files:
+                _load_one(procs, projects, coverage_files, db[sample_name].base_coverage)
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
@@ -515,7 +539,7 @@ def add_project(project_name, genome):
     full_db = get_db()
     full_db.projects.insert({'name': project_name, 'genome': genome})
     print('Adding ' + project_name + ' to the database')
-    for load_function in [load_variants_file, load_base_coverage, load_evaluate_capture_data]:
+    for load_function in [load_base_coverage, load_variants_file, load_evaluate_capture_data]:
         procs = load_function(project_name, genome)
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -759,8 +783,33 @@ def awesome(project_genome, sample_name, project_name):
         raise Exception
 
 
+@app.route('/<project_genome>/<project_name>/awesome')
+def awesome_project(project_genome, project_name):
+    db = get_db()
+    query = request.args.get('query')
+    datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, None, query)
+
+    print "Searched for %s: %s" % (datatype, identifier)
+    if datatype == 'gene':
+        return redirect('/{}/{}/gene/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'transcript':
+        return redirect('/{}/{}/transcript/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'variant':
+        return redirect('/{}/{}/variant/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'region':
+        return redirect('/{}/{}/region/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'dbsnp_variant_set':
+        return redirect('/{}/{}/dbsnp/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'error':
+        return redirect('/{}/{}/error/{}'.format(project_genome, project_name, identifier))
+    elif datatype == 'not_found':
+        return redirect('/{}/{}/not_found/{}'.format(project_genome, project_name, identifier))
+    else:
+        raise Exception
+
+
 @app.route('/awesomeproject')
-def awesome_project():
+def awesomeproject():
     db = get_db()
     query = request.args.get('query')
     project = lookups.get_project_by_project_name(db, query)
@@ -768,6 +817,11 @@ def awesome_project():
         return redirect('/{}/{}'.format(project['genome'], project['name']))
 
     return redirect('/not_found/{}'.format(query))
+
+
+@app.route('/<project_genome>/<project_name>/variant/<variant_str>')
+def variant_page_project(project_name, project_genome, variant_str):
+    return variant_page(project_name, project_genome, sample_name=None, variant_str=variant_str)
 
 
 @app.route('/<project_genome>/<project_name>/<sample_name>/variant/<variant_str>')
@@ -862,7 +916,8 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
             "%s-" % chrom)
 
         read_group = None
-        sample_names = [sample_name]
+        if sample_name:
+            sample_names = [sample_name]
         # if 'sample_names' in variant:
         #    sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
         #                    if variant['sample_data'][idx]]
@@ -916,13 +971,26 @@ def gene_page(sample_name, project_name, project_genome, gene_id):
     return get_gene_page_content(sample_name, project_name, project_genome, gene_id)
 
 
+@app.route('/<project_genome>/<project_name>/gene/<gene_id>')
+def project_gene_page(project_name, project_genome, gene_id):
+    check_project_exists(project_name)
+    # if gene_id in GENES_TO_CACHE:
+    #    return open(os.path.join(GENE_CACHE_DIR, '{}.html'.format(gene_id))).read()
+    # else:
+    return get_gene_page_content(None, project_name, project_genome, gene_id)
+
+
 def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
     db = get_db()
     try:
         gene = lookups.get_gene(db, project_genome, gene_id)
         if gene is None:
             abort(404)
-        cache_key = 't-gene-{}-{}-{}-{}'.format(project_genome, project_name, sample_name, gene_id)
+        if sample_name:
+            cache_key = 't-gene-{}-{}-{}-{}'.format(project_genome, project_name, sample_name, gene_id)
+        else:
+            cache_key = 't-gene-{}-{}-{}'.format(project_genome, project_name, gene_id)
+
         t = cache.get(cache_key)
         if t is None:
             sample_names = lookups.get_project_samples(db, project_name, project_genome)
@@ -982,6 +1050,11 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
         abort(404)
 
 
+@app.route('/<project_genome>/<project_name>/transcript/<transcript_id>')
+def project_transcript_page(project_name, project_genome, transcript_id):
+    return transcript_page(None, project_name, project_genome, transcript_id)
+
+
 @app.route('/<project_genome>/<project_name>/<sample_name>/transcript/<transcript_id>')
 def transcript_page(sample_name, project_name, project_genome, transcript_id):
     check_project_exists(project_name)
@@ -1038,6 +1111,11 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
     except Exception, e:
         print 'Failed on transcript:', transcript_id, ';Error=', traceback.format_exc()
         abort(404)
+
+
+@app.route('/<project_genome>/<project_name>/region/<region_id>')
+def project_region_page(project_name, project_genome, region_id):
+    return region_page(project_name, project_genome, None, region_id)
 
 
 @app.route('/<project_genome>/<project_name>/<sample_name>/region/<region_id>')
@@ -1193,7 +1271,7 @@ def faq_page():
 def text_page():
     db = get_db()
     query = request.args.get('text')
-    datatype, identifier = lookups.get_awesomebar_result(db, query)
+    datatype, identifier = lookups.get_awesomebar_result(db, None, None, None, query)
     if datatype in ['gene', 'transcript']:
         gene = lookups.get_gene(db, identifier)
         link = "http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&position=chr%(chrom)s%%3A%(start)s-%(stop)s" % gene
@@ -1256,7 +1334,7 @@ def apply_caching(response):
 
 if __name__ == "__main__":
     # adds Flask command line options for setting host, port, etc.
-    app.run(host='172.18.72.170', threaded=True, debug=True, extra_files='autocomplete_projects.txt')
+    app.run(host=HOST_IP, threaded=True, debug=True, extra_files='autocomplete_projects.txt')
     # runner = Runner(app)
     # runner.run()
     # manager = Manager(app)

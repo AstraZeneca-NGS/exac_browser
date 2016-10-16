@@ -6,15 +6,9 @@
     <script type="text/javascript">
         window.table_regions = {{ filtered_regions_json|safe }};
     </script>
+
     <div class="container">
         <h1 id="home-title">ExAC Browser (Beta) | {{ project_name }}</h1>
-
-        {% if sample_names and sample_names|length > 0 %}
-            <b>Samples:</b>
-            {% for sample in sample_names %}
-                <p><a href="/{{ genome }}/{{ project_name }}/{{ sample }}">{{ sample }}</a></p>
-            {% endfor %}
-        {% endif %}
 
         {% if filtered_regions and filtered_regions|length > 0 %}
             <div class="row">
@@ -26,6 +20,43 @@
             <div class="row">
                     {% include 'regions_table.html' %}
             </div>
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-12">
+                <div id="home-searchbox">
+                    <form action="/{{ genome }}/{{ project_name }}/awesome">
+                        <input type="submit" style="display: none;"/>
+                        <input id="home-searchbox-input" name="query" class="form-control input-lg awesomebar" type="text" placeholder="Search for a gene or variant or region"/>
+                        <input type="submit" style="position: absolute; left: -9999px"/>
+                    </form>
+                    <p class="text-muted">
+                        Examples - Gene: <a href="/{{ genome }}/{{ project_name }}/awesome?query=TP53">TP53</a>,
+                        Transcript: <a href="/{{ genome }}/{{ project_name }}/transcript/NM_000546">NM_000546</a>,
+                        Variant: <a href="/{{ genome }}/{{ project_name }}/variant/17-7579311-C-A">17-7579311-C-A</a>,
+                        Multi-allelic variant: <a href="/{{ genome }}/{{ project_name }}/awesome?query=rs371409680">rs371409680</a>,
+                        Region: <a href="/{{ genome }}/{{ project_name }}/region/17-7579300-7579900">17:7579300-7579900</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% if filtered_regions %}
+            <div class="row">
+            Show regions with coverage less than:
+                {% for depth in depth_thresholds %}
+                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>
+                {% endfor %}
+            </div>
+            <div class="row">
+                    {% include 'regions_table.html' %}
+            </div>
+        {% endif %}
+
+        {% if sample_names and sample_names|length > 0 %}
+            <b>Samples:</b>
+            {% for sample in sample_names %}
+                <p><a href="/{{ genome }}/{{ project_name }}/{{ sample }}">{{ sample }}</a></p>
+            {% endfor %}
         {% endif %}
     </div>
 {% endblock %}

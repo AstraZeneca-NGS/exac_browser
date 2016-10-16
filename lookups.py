@@ -95,8 +95,10 @@ def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=Non
     """
     if use_population_data:
         coverage_data = db.population_coverage
-    else:
+    elif sample_name:
         coverage_data = db[get_project_key(project_name, genome)][sample_name].base_coverage
+    else:
+        coverage_data = db[get_project_key(project_name, genome)].base_coverage
     if xstop is None:
         xstop = xstart
     coverages = dict(
@@ -166,7 +168,7 @@ R3 = re.compile(r'^(\d+|X|Y|M|MT)$')
 R4 = re.compile(r'^\s*(\d+|X|Y|M|MT)\s*[-:]\s*(\d+)[-:\s]*([ATCG]+)\s*[-:/]\s*([ATCG]+)\s*$')
 
 
-def get_awesomebar_result(db, project_name, genome, sample_name, query):
+def get_awesomebar_result(db, project_name, genome, sample_name=None, query=None):
     """
     Similar to the above, but this is after a user types enter
     We need to figure out what they meant - could be gene, variant, region

@@ -50,7 +50,9 @@
     </script>
     <div class="container-fluid">
         <div class="col-md-10 col-xs-offset-1 col-md-offset-1">
-            <h1>Sample: {{ sample_name }}</h1>
+            {% if sample_name  %}
+                <h1>Sample: {{ sample_name }}</h1>
+            {% endif %}
             <h1>Gene: {{ gene.gene_name }}</h1>
             <hr/>
         </div>

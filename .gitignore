@@ -11,3 +11,7 @@ exac_env/
 exac_env
 *dist
 *node_modules
+
+autocomplete_projects.txt
+*_autocomplete_strings.txt
+database/
