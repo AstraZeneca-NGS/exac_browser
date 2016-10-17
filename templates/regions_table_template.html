@@ -5,12 +5,12 @@
 <table id="regions_table" class="tablesorter">
     <thead>
         <tr>
-            <th class='hidden-xs'>Chr</th>
-            <th class='hidden-xs numbers_td'>Start</th>
-            <th class='hidden-xs numbers_td'>End</th>
+            <th class='hidden-xs'>Region</th>
+{#            <th class='hidden-xs numbers_td'>Start</th>#}
+{#            <th class='hidden-xs numbers_td'>End</th>#}
             <th class="hidden-xs">Gene</th>
-            <th class="hidden-xs numbers_td" id="depth_col">Depth&lt;Nx</th>
-            <th class="hidden-xs numbers_td">Samples</th>
+            <th class="hidden-xs numbers_td" id="depth_col">Part of region with depth &lt; Nx</th>
+            <th class="hidden-xs numbers_td">Samples sharing low cov</th>
             <th class="hidden-xs">Annotation</th>
         </tr>
     </thead>
@@ -18,10 +18,11 @@
     <% _.each(table_regions, function(region) { %>
         <tr class="table_region" id="region_<%= region.region_id %>"
             depth_threshold="<%= region.depth_threshold %>" samples="<%= region.samples %>" depth="<%= region.depth %>" gene="<%= region.gene %>">
-            <td class='hidden-xs'> <%= region.chrom %></td>
-            <td class='hidden-xs numbers_td'> <%= region.start %></td>
-            <td class='hidden-xs numbers_td'> <%= region.stop %></td>
-            <td class="hidden-xs"><%= region.gene %></td>
+            <td class='hidden-xs numbers_td' style='text-align: left;'><a href="region/<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.chrom %> : <%= region.start_str %> - <%= region.stop_str %></a></td>
+{#            <td class='hidden-xs'><%= region.chrom %></td>#}
+{#            <td class='hidden-xs numbers_td'><a href="awesome?query=<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.start_str %></a></td>#}
+{#            <td class='hidden-xs numbers_td'><a href="awesome?query=<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.stop_str %></a></td>#}
+            <td class="hidden-xs"><a href="awesome?query=<%= region.gene %>"><%= region.gene %></a></td>
             <td class="hidden-xs numbers_td"> <%= region.depth %></td>
             <td class="hidden-xs numbers_td"> <%= region.samples %></td>
             <td class="hidden-xs"> <%= region.annotation %></td>

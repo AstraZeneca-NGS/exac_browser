@@ -539,7 +539,7 @@ def add_project(project_name, genome):
     full_db = get_db()
     full_db.projects.insert({'name': project_name, 'genome': genome})
     print('Adding ' + project_name + ' to the database')
-    for load_function in [load_base_coverage, load_variants_file, load_evaluate_capture_data]:
+    for load_function in [load_evaluate_capture_data, load_base_coverage, load_variants_file]:
         procs = load_function(project_name, genome)
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))

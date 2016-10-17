@@ -181,7 +181,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
 
 
 def get_regions(regions_file, canonical_transcripts):
-    float_header_fields = ['size', 'gene', 'depth', 'samples', 'annotation']
+    header_fields = ['chrom', 'start', 'stop', 'size', 'gene', 'depth', 'samples', 'annotation']
     depth_threshold = 0
     for line in regions_file:
         if line.startswith('#'):
@@ -190,23 +190,26 @@ def get_regions(regions_file, canonical_transcripts):
                 depth_threshold = re.findall(threshold_pattern, line)[0]
             continue
         fields = line.strip('\n').split('\t')
-        chrom = fields[0]
+        chrom = fields[header_fields.index('chrom')]
         if chrom not in CHROMOSOME_TO_CODE:
             continue
-        start = int(fields[1])
-        stop = int(fields[2])
-        gene = fields[4]
+        start = int(fields[header_fields.index('start')])
+        stop = int(fields[header_fields.index('stop')])
+        gene = fields[header_fields.index('gene')]
         if not gene or gene == '.' or gene == 'None':
             continue
         d = {
             'chrom': chrom,
-            'start': format_value(start, is_html=True, human_readable=True),
-            'stop': format_value(start, is_html=True, human_readable=True),
+            'start': start,
+            'stop': stop,
+            'start_str': format_value(start, is_html=True, human_readable=True),
+            'stop_str': format_value(stop, is_html=True, human_readable=True),
+            'gene': gene,
+            'depth': fields[header_fields.index('depth')],
+            'samples': fields[header_fields.index('samples')],
+            'annotation': fields[header_fields.index('annotation')],
             'depth_threshold': depth_threshold
         }
-        for i, k in enumerate(float_header_fields):
-            if i + 3 < len(float_header_fields):
-                d[k] = float(fields[i+3])
         yield d
 
 

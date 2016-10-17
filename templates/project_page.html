@@ -10,18 +10,6 @@
     <div class="container">
         <h1 id="home-title">ExAC Browser (Beta) | {{ project_name }}</h1>
 
-        {% if filtered_regions and filtered_regions|length > 0 %}
-            <div class="row">
-            Show regions with coverage less than:
-                {% for depth in depth_thresholds %}
-                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>
-                {% endfor %}
-            </div>
-            <div class="row">
-                    {% include 'regions_table.html' %}
-            </div>
-        {% endif %}
-
         <div class="row">
             <div class="col-md-12">
                 <div id="home-searchbox">
@@ -40,23 +28,40 @@
                 </div>
             </div>
         </div>
-        {% if filtered_regions %}
-            <div class="row">
-            Show regions with coverage less than:
-                {% for depth in depth_thresholds %}
-                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>
-                {% endfor %}
-            </div>
-            <div class="row">
-                    {% include 'regions_table.html' %}
-            </div>
-        {% endif %}
+{#        {% if filtered_regions %}#}
+{#            <div class="row">#}
+{#            Show regions with coverage less than:#}
+{#                {% for depth in depth_thresholds %}#}
+{#                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>#}
+{#                {% endfor %}#}
+{#            </div>#}
+{#            <div class="row">#}
+{#                    {% include 'regions_table.html' %}#}
+{#            </div>#}
+{#        {% endif %}#}
 
         {% if sample_names and sample_names|length > 0 %}
             <b>Samples:</b>
             {% for sample in sample_names %}
                 <p><a href="/{{ genome }}/{{ project_name }}/{{ sample }}">{{ sample }}</a></p>
             {% endfor %}
+        {% endif %}
+
+        {% if filtered_regions and filtered_regions|length > 0 %}
+            <br>
+            <br>
+            <br>
+            <h3>Poorly covered regions</h3>
+            <div>
+                Show the regions with coverage below
+                {% for depth in depth_thresholds %}
+                    <label><input type="radio" name="depth_thresholds" value="{{ depth }}"> {{ depth }}x</label>
+                {% endfor %}
+                in more than 50% of samples. Region is reported if at least 50% of it is covered below the threshold.
+            </div>
+            <div>
+                {% include 'regions_table.html' %}
+            </div>
         {% endif %}
     </div>
 {% endblock %}
