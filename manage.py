@@ -43,6 +43,11 @@ def load_population_coverage():
 
 
 @manager.command
+def load_evaluate_capture_data(project_name, genome):
+    exac.load_evaluate_capture_data(project_name, genome)
+
+
+@manager.command
 def reload_variants(project_name, genome):
     exac.load_variants_file(project_name, genome)
     # exac.load_mnps()

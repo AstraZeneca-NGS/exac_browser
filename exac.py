@@ -9,6 +9,9 @@ from os.path import basename
 import pymongo
 import pysam
 import gzip
+
+from subprocess import check_output
+
 from parsing import *
 import logging
 import lookups
@@ -105,7 +108,7 @@ def connect_db():
     return client[app.config['DB_NAME']]
 
 
-def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, canonical_transcripts=None):
+def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, canonical_transcripts=None, proc_name=None):
     """
     Returns a generator of parsed record objects (as returned by record_parser) for the i'th out n subset of records
     across all the given tabix_file(s). The records are split by files and contigs within files, with 1/n of all contigs
@@ -123,8 +126,8 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
     tabix_file_contig_subset = tabix_file_contig_pairs[subset_i : : subset_n]  # get every n'th tabix_file/contig pair
     short_filenames = ", ".join(map(os.path.basename, tabix_filenames))
     num_file_contig_pairs = len(tabix_file_contig_subset)
-    print(("Loading subset %(subset_i)s of %(subset_n)s total: %(num_file_contig_pairs)s contigs from "
-           "%(short_filenames)s") % locals())
+    print (((proc_name + ': ') if proc_name else '') + "Loading subset %(subset_i)s of %(subset_n)s total:" +
+           " %(num_file_contig_pairs)s contigs from %(short_filenames)s") % locals()
     counter = 0
     for tabix_file, contig in tabix_file_contig_subset:
         header_iterator = tabix_file.header
@@ -135,14 +138,16 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
 
             if counter % 100000 == 0:
                 seconds_elapsed = int(time.time()-start_time)
-                print(("Loaded %(counter)s records from subset %(subset_i)s of %(subset_n)s from %(short_filenames)s "
+                print (((proc_name + ': ') if proc_name else '') + ("Loaded %(counter)s records from subset %(subset_i)s of %(subset_n)s from %(short_filenames)s "
                        "(%(seconds_elapsed)s seconds)") % locals())
 
-    print("Finished loading subset %(subset_i)s from  %(short_filenames)s (%(counter)s records)" % locals())
+    print (((proc_name + ': ') if proc_name else '') + "Finished loading subset %(subset_i)s from" +
+           "  %(short_filenames)s (%(counter)s records)") % locals()
 
 
 def load_coverage(coverage_files, i, n, coverage_db):
-    coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file)
+    coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file,
+                                                 proc_name='Base coverage')
     try:
         coverage_db.insert(coverage_generator, w=0)
     except pymongo.errors.InvalidOperation:
@@ -209,7 +214,8 @@ def load_base_coverage(project_name=None, genome=None):
 
 def load_variants_file(project_name=None, genome=None):
     def load_variants(sites_file, i, n, db, canonical_transcripts):
-        variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf, canonical_transcripts)
+        variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf,
+             canonical_transcripts=canonical_transcripts, proc_name='Variants')
         try:
             db.variants.insert(variants_generator, w=0)
         except pymongo.errors.InvalidOperation:
@@ -262,11 +268,16 @@ def load_variants_file(project_name=None, genome=None):
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
 
 
+def wc(fpath):
+    return int(check_output(["wc", "-l", fpath]).split()[0])
+
+
 def load_evaluate_capture_data(project_name=None, genome=None):
-    def load_regions(project_files, i, n, db):
-        regions_generator = parse_tabix_file_subset(project_files, i, n, get_regions)
+    def load_regions(project_files, proc_index_, num_procs_, db_):
+        regions_generator = parse_tabix_file_subset(project_files, proc_index_, num_procs_, get_regions,
+                                                    proc_name='Evaluate capture regions')
         try:
-            db.filtered_regions.insert(regions_generator, w=0)
+            db_.filtered_regions.insert(regions_generator, w=0)
         except pymongo.errors.InvalidOperation:
             pass  # handle error when variant_generator is empty
 
@@ -282,11 +293,14 @@ def load_evaluate_capture_data(project_name=None, genome=None):
         db.filtered_regions.drop()
         db.filtered_regions.ensure_index('start')
 
-        regions_files = glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name))
+        regions_fpaths = glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name))
+        regions_fpaths = [f for f in regions_fpaths if wc(f) < 200]
+
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
         max_procs = max(1, num_procs / len(projects))
+        print 'Loaded regions files: ' + ', '.join(regions_fpaths) + ', loading in ' + str(num_procs) + ' procs, ' + str(max_procs) + ' max procs'
         for i in range(max_procs):
-            p = Process(target=load_regions, args=(regions_files, i, num_procs, db))
+            p = Process(target=load_regions, args=(regions_fpaths, i, num_procs, db))
             p.start()
             procs.append(p)
 
@@ -451,7 +465,8 @@ def load_dbsnp_file():
 
     def load_dbsnp(dbsnp_file, i, n, db):
         if os.path.isfile(dbsnp_file + ".tbi"):
-            dbsnp_record_generator = parse_tabix_file_subset([dbsnp_file], i, n, get_snp_from_dbsnp_file)
+            dbsnp_record_generator = parse_tabix_file_subset([dbsnp_file], i, n, get_snp_from_dbsnp_file,
+                                                             proc_name='dbSNP file')
             try:
                 db.dbsnp.insert(dbsnp_record_generator, w=0)
             except pymongo.errors.InvalidOperation:
