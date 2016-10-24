@@ -149,7 +149,7 @@ def load_coverage(coverage_files, i, n, coverage_db):
     coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file,
                                                  proc_name='Base coverage')
     try:
-        coverage_db.insert(coverage_generator, w=0)
+        coverage_db.insert(coverage_generator, w=0, j=0)
     except pymongo.errors.InvalidOperation:
         pass  # handle error when coverage_generator is empty
 
@@ -172,15 +172,16 @@ def load_population_coverage():
     return procs
 
 
-def _load_one(procs, projects, coverage_files, coverage):
+def _load_one(procs, samples, coverage_files, coverage):
     # load coverage first; variant info will depend on coverage
     coverage.ensure_index('xpos')
     num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    max_procs = max(1, num_procs / len(projects))
+    max_procs = max(1, num_procs / len(samples))
     for i in range(max_procs):
         p = Process(target=load_coverage, args=(coverage_files, i, num_procs, coverage))
         p.start()
         procs.append(p)
+    return procs
 
 
 def load_base_coverage(project_name=None, genome=None):
@@ -196,9 +197,11 @@ def load_base_coverage(project_name=None, genome=None):
         db.base_coverage.drop()
         print("Dropped db.base_coverage for " + project_name)
         project_coverage_files = glob.glob(app.config['PROJECT_BASE_COVERAGE_FILES'] % (genome, project_name))
-        _load_one(procs, projects, project_coverage_files, db.base_coverage)
+        project_procs = _load_one(procs, 1, project_coverage_files, db.base_coverage)
+        [p.join() for p in project_procs]
 
         sample_dirs = glob.glob(app.config['BASE_COVERAGE_DIRS'] % (genome, project_name))
+        sample_procs = []
         for sample_dir in sample_dirs:
             path, sample_name = os.path.split(os.path.dirname(sample_dir))
             db[sample_name].base_coverage.drop()
@@ -206,7 +209,8 @@ def load_base_coverage(project_name=None, genome=None):
             db.samples.insert({'name': sample_name})
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
             if coverage_files:
-                _load_one(procs, projects, coverage_files, db[sample_name].base_coverage)
+                _load_one(sample_procs, sample_dirs, coverage_files, db[sample_name].base_coverage)
+        [p.join() for p in sample_procs]
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
@@ -931,11 +935,12 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
             "%s-" % chrom)
 
         read_group = None
+        sample_names = []
         if sample_name:
             sample_names = [sample_name]
-        # if 'sample_names' in variant:
-        #    sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
-        #                    if variant['sample_data'][idx]]
+        elif 'sample_names' in variant:
+            sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
+                            if variant['sample_data'][idx]]
 
         if 'transcripts' in variant and variant['transcripts']:
             for transcript_id in variant['transcripts']:
@@ -1051,9 +1056,9 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
                 cnvs_json=JSONEncoder().encode(cnvs_in_transcript),
                 cnvgenes = cnvs_per_gene,
                 cnvgenes_json=JSONEncoder().encode(cnvs_per_gene),
-                population_cnvs = population_cnvs_in_transcript,
+                population_cnvs=population_cnvs_in_transcript,
                 population_cnvs_json=JSONEncoder().encode(population_cnvs_in_transcript),
-                population_cnvgenes = population_cnvs_per_gene,
+                population_cnvgenes=population_cnvs_per_gene,
                 population_cnvgenes_json=JSONEncoder().encode(population_cnvs_per_gene),
                 constraint=constraint_info
             )
