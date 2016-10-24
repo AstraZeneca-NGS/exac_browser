@@ -20,7 +20,7 @@
             <td class='hidden-xs numbers_td' style='text-align: left; white-space: nowrap;'>
                 <%= region.chrom %>:<a href="region/<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.start_str %>-<%= region.stop_str %></a>
             </td>
-            <td class="hidden-xs" style='white-space: nowrap;><a href="awesome?query=<%= region.gene %>"><%= region.gene %></a></td>
+            <td class="hidden-xs" style="white-space: nowrap;"><a href="awesome?query=<%= region.gene %>"><%= region.gene %></a></td>
             <td class="hidden-xs numbers_td"> <%= region.depth %></td>
             <td class="hidden-xs numbers_td"> <%= region.samples %></td>
             <td class="hidden-xs"> <%= region.annotation %></td>
