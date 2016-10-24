@@ -172,11 +172,11 @@ def load_population_coverage():
     return procs
 
 
-def _load_one(procs, samples, coverage_files, coverage):
+def _load_one(procs, samples_count, coverage_files, coverage):
     # load coverage first; variant info will depend on coverage
     coverage.ensure_index('xpos')
     num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    max_procs = max(1, num_procs / len(samples))
+    max_procs = max(1, num_procs / samples_count)
     for i in range(max_procs):
         p = Process(target=load_coverage, args=(coverage_files, i, num_procs, coverage))
         p.start()
@@ -209,7 +209,7 @@ def load_base_coverage(project_name=None, genome=None):
             db.samples.insert({'name': sample_name})
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
             if coverage_files:
-                _load_one(sample_procs, sample_dirs, coverage_files, db[sample_name].base_coverage)
+                _load_one(sample_procs, len(sample_dirs), coverage_files, db[sample_name].base_coverage)
         [p.join() for p in sample_procs]
     return procs
 
