@@ -206,6 +206,6 @@ TODO: come up with a better way to position tooltip
   justify-content: space-between;
 }
 
-table th {
-    vertical-align: bottom;
-}
+/*table th {*/
+    /*vertical-align: bottom;*/
+/*}*/

@@ -304,7 +304,7 @@ def load_evaluate_capture_data(project_name=None, genome=None):
         if regions_fpaths:
             good_regions_fpaths = [fpath for fpath in regions_fpaths if regions_by_lines_num[fpath] < 300]
             if not good_regions_fpaths:
-                good_regions_fpaths = min(regions_fpaths, key=lambda _fp: regions_by_lines_num[_fp])
+                good_regions_fpaths = [min(regions_fpaths, key=lambda _fp: regions_by_lines_num[_fp])]
 
             num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
             max_procs = max(1, num_procs / len(projects))
