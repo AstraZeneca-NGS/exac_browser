@@ -136,7 +136,7 @@
         });
     </script>
     <div class="container">
-        <div class="row">
+        <div>
             <div class="col-md-6">
                 <h1><span class="hidden-xs">Variant: </span>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }} / {{ variant.alt }}</h1>
                 {% if variant.mnps %}
@@ -174,7 +174,7 @@
         {% if variant.variant_id %}
             <p>This variant is covered in {{ (variant.allele_num/2)|int }} individuals (adjusted allele number = {{ variant.allele_num }}).<br/></p>
             <hr/>
-            <div class="row">
+            <div>
                 <div class="col-md-6">
                     <dl class="dl-horizontal" style="margin-bottom: 0px;">
                         <dt>
@@ -293,7 +293,7 @@
         {% endif %}
 
 {#          Lower display#}
-        <div class="row">
+        <div>
             <div class="col-md-6">
                 <div id="annotation_container">
                 {% if variant.variant_id %}
@@ -397,7 +397,7 @@
                     </div>
                 {% else %}
                     {% if any_covered %}
-                        <div class="row">
+                        <div>
                             <span class="section_header">Coverage</span>
                             {% if base_coverage|length > 1 %}
                                 {% include 'coverage_selectors.html' %}
@@ -414,7 +414,7 @@
 
         <hr/>
 
-        <div class="row">
+        <div>
 	    <div class="col-md-12">
 	    <div class="section_header">Read Data</div>
             <p />

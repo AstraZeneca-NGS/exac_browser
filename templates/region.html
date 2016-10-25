@@ -34,14 +34,14 @@
         {% if genes_in_region %}
             {% if stop != None %}
                 <h3>Coverage summary</h3>
-                <div class="row">
-                    <h4>Sample plot</h4>
+                <div>
+                    <h4>Sample-level</h4>
                     {% with plot_id = 'sample' %}
                         {% include 'region_display.html' %}
                     {% endwith %}
                 </div>
-                <div class="row">
-                    <h4>Population plot</h4>
+                <div>
+                    <h4>Population-averaged (source: <a href="http://exac.broadinstitute.org/">exac.broadinstitute.org</a>)</h4>
                     {% with plot_id = 'population' %}
                         {% include 'region_display.html' %}
                     {% endwith %}

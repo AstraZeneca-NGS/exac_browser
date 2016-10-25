@@ -18,7 +18,7 @@
     <% _.each(table_regions, function(region) { %>
         <tr class="table_region" id="region_<%= region.region_id %>" depth_threshold="<%= region.depth_threshold %>" samples="<%= region.samples %>" depth="<%= region.depth %>" gene="<%= region.gene %>">
             <td class='hidden-xs numbers_td' style='text-align: left; white-space: nowrap;'>
-                <%= region.chrom %>:<a href="region/<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.start_str %>-<%= region.stop_str %></a>
+                <%= region.chrom %> : <a href="region/<%= region.chrom %>-<%= region.start %>-<%= region.stop %>"><%= region.start_str %> - <%= region.stop_str %></a>
             </td>
             <td class="hidden-xs" style="white-space: nowrap;"><a href="awesome?query=<%= region.gene %>"><%= region.gene %></a></td>
             <td class="hidden-xs numbers_td"> <%= region.depth %></td>

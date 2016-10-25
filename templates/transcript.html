@@ -49,21 +49,21 @@
                 </ul>
             </div>
         </div>
-        <div class="row">
+        <div>
             <div class="col-md-10 col-md-offset-1">
-                <div class="row">
-                    <h4>Sample plot</h4>
+                <div>
+                    <h4>Sample-level</h4>
                     {% with plot_id = 'sample' %}
                         {% include 'transcript_display.html' %}
                     {% endwith %}
                 </div>
-                <div class="row">
-                    <h4>Population plot</h4>
+                <div>
+                    <h4>Population-averaged (source: <a href="http://exac.broadinstitute.org/">exac.broadinstitute.org</a>)</h4>
                     {% with plot_id = 'population' %}
                         {% include 'transcript_display.html' %}
                     {% endwith %}
                 </div>
-                <div class="row">
+                <div>
                     {% if variants_in_transcript %}
                         {% with chrom = variants_in_transcript[0].chrom %}
                             {% include 'variant_table.html' %}
