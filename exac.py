@@ -273,7 +273,8 @@ def load_variants_file(project_name=None, genome=None):
 
 
 def wc(fpath):
-    return int(check_output(["wc", "-l", fpath]).split()[0])
+    cat = 'cat' if not fpath.endswith('.gz') else 'gunzip -c'
+    return int(check_output(cat + ' ' + fpath + ' | grep -v ^# | wc -l', shell=True).split()[0])
 
 
 def load_evaluate_capture_data(project_name=None, genome=None):
@@ -297,8 +298,10 @@ def load_evaluate_capture_data(project_name=None, genome=None):
         db.filtered_regions.drop()
         db.filtered_regions.ensure_index('start')
 
-        regions_fpaths = glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name))
-        regions_fpaths = [f for f in regions_fpaths if wc(f) < 200]
+        regions_fpaths = []
+        for fpath in glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name)):
+            if 0 < wc(fpath) < 300:
+                regions_fpaths.append(fpath)
 
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
         max_procs = max(1, num_procs / len(projects))

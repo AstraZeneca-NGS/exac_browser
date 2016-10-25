@@ -198,6 +198,13 @@ def get_regions(regions_file, canonical_transcripts):
         gene = fields[header_fields.index('gene')]
         if not gene or gene == '.' or gene == 'None':
             continue
+
+        anno_line = fields[header_fields.index('annotation')]
+        percent_by_type = [kv.split(': ') for kv in anno_line.split(', ') if kv]
+        assert all(len(kv) == 2 for kv in percent_by_type), anno_line
+        percent_by_type = [(k, v) for k, v in percent_by_type if int(v.replace('%', '')) >= 50]
+        annotation = ', '.join(k + ': ' + v for k, v in percent_by_type)
+
         d = {
             'chrom': chrom,
             'start': start,
@@ -207,7 +214,7 @@ def get_regions(regions_file, canonical_transcripts):
             'gene': gene,
             'depth': fields[header_fields.index('depth')],
             'samples': fields[header_fields.index('samples')],
-            'annotation': fields[header_fields.index('annotation')],
+            'annotation': annotation,
             'depth_threshold': depth_threshold
         }
         yield d
