@@ -298,18 +298,21 @@ def load_evaluate_capture_data(project_name=None, genome=None):
         db.filtered_regions.drop()
         db.filtered_regions.ensure_index('start')
 
-        regions_fpaths = []
-        for fpath in glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name)):
-            if 0 < wc(fpath) < 300:
-                regions_fpaths.append(fpath)
+        regions_fpaths = glob.glob(app.config['FILTERED_REGIONS_FILES'] % (genome, project_name))
+        regions_by_lines_num = dict((fpath, wc(fpath)) for fpath in regions_fpaths)
+        regions_fpaths = [fpath for fpath in regions_fpaths if 0 < regions_by_lines_num[fpath]]
+        if regions_fpaths:
+            good_regions_fpaths = [fpath for fpath in regions_fpaths if regions_by_lines_num[fpath] < 300]
+            if not good_regions_fpaths:
+                good_regions_fpaths = min(regions_fpaths, key=lambda _fp: regions_by_lines_num[_fp])
 
-        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-        max_procs = max(1, num_procs / len(projects))
-        print 'Loaded regions files: ' + ', '.join(regions_fpaths) + ', loading in ' + str(num_procs) + ' procs, ' + str(max_procs) + ' max procs'
-        for i in range(max_procs):
-            p = Process(target=load_regions, args=(regions_fpaths, i, num_procs, db))
-            p.start()
-            procs.append(p)
+            num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
+            max_procs = max(1, num_procs / len(projects))
+            print 'Loaded regions files: ' + ', '.join(good_regions_fpaths) + ', loading in ' + str(num_procs) + ' procs, ' + str(max_procs) + ' max procs'
+            for i in range(max_procs):
+                p = Process(target=load_regions, args=(good_regions_fpaths, i, num_procs, db))
+                p.start()
+                procs.append(p)
 
     print 'Done loading capture evaluating info. Took %s seconds' % int(time.time() - start_time)
     return procs
