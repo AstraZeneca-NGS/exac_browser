@@ -4,7 +4,7 @@
         $('#navbar_form_container').hide();
     </script>
     <script type="text/javascript">
-        window.table_regions = {{ filtered_regions_json|safe }};
+        window.sample_variants = {{ sample_variants_json|safe }};
     </script>
     <div class="container">
         <h1 id="home-title">ExAC Browser (Beta) | <a href="/{{ genome }}/{{ project_name }}/">{{ project_name }}</a> | {{ sample_name }}</h1>
@@ -26,5 +26,15 @@
                 </div>
             </div>
         </div>
+
+        {% if sample_variants and sample_variants|length > 0 %}
+            <br>
+            <br>
+            <h3>Likely and known mutations</h3>
+            <div>
+                {% include 'sample_variants_table.html' %}
+            </div>
+        {% endif %}
+
     </div>
 {% endblock %}

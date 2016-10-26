@@ -82,6 +82,26 @@ def get_variants_from_dbsnp(db, project_name, genome, rsid):
     return []
 
 
+def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=False):
+    sample_variants = []
+    if filter_unknown:
+        variants = db[get_project_key(project_name, genome)].variants.find({'filter': 'PASS'})
+    else:
+        variants = db[get_project_key(project_name, genome)].variants.find()
+    if variants:
+        sample_index = variants[0]['sample_names'].index(sample_name)
+        for variant in variants:
+            if variant['sample_data'][sample_index] and variant['genes']:
+                if 'sample_af' in variant:
+                    variant['freq'] = variant['sample_af'][sample_index]
+                if 'sample_depth' in variant:
+                    variant['depth'] = variant['sample_depth'][sample_index]
+                sample_variants.append(variant)
+    if sample_variants:
+        add_consequence_to_variants(sample_variants)
+    return sample_variants
+
+
 def get_filtered_regions_in_project(db, project_name, genome):
     regions = db[get_project_key(project_name, genome)].filtered_regions.find()
     return list(regions)

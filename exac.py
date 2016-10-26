@@ -209,7 +209,7 @@ def load_base_coverage(project_name=None, genome=None):
             db.samples.insert({'name': sample_name})
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
             if coverage_files:
-                _load_one(sample_procs, len(sample_dirs), coverage_files, db[sample_name].base_coverage)
+                sample_procs = _load_one(sample_procs, len(sample_dirs), coverage_files, db[sample_name].base_coverage)
         [p.join() for p in sample_procs]
     return procs
 
@@ -747,12 +747,15 @@ def sample_page(sample_name, project_name, project_genome):
     check_sample_exists(project_genome, project_name, sample_name)
     db = get_db()
     sample_names = lookups.get_project_samples(db, project_name, project_genome)
+    variants = lookups.get_sample_variants(db, project_name, project_genome, sample_name, filter_unknown=True)
     t = render_template(
         'sample_page.html',
         project_name=project_name,
         genome=project_genome,
         sample_names=sample_names,
-        sample_name=sample_name
+        sample_name=sample_name,
+        sample_variants=variants,
+        sample_variants_json=JSONEncoder().encode(variants)
     )
     return t
 

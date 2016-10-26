@@ -1,0 +1,34 @@
+{% block sample_variants_table %}
+{% include 'variant_selectors.html' %}
+{% include "sample_variants_table_template.html" %}
+<script>
+    $(document).ready(function() {
+
+        $("#variants_loading").hide();
+        $("#variants_table_container").show();
+        window.variants_template = _.template($('#sample-variants-table-template').html());
+        $('#variants_table_container').html(variants_template({sample_variants: sample_variants}));
+        $('#pager').hide();
+
+        $("#variants_table").tablesorter({
+            sortList: [[1,0]]
+        });
+
+        update_variants();
+        $('.consequence_display_buttons, .indel_display_buttons').change(function () {
+            setTimeout(function() {
+                update_variants();
+            }, 10);
+        });
+        $('.varying_selector_checkboxes').hide();
+        $("#export_to_csv").on('click', function (event) {
+            var output_name = window.page_name === undefined ? 'export' : window.page_name;
+            var timestamp = date_format(new Date());
+            exportTableToCSV.apply(this, [$('#variants_table'), 'exac_' + output_name + '_' + timestamp + '.csv']);
+        });
+    });
+</script>
+<div id="variants_loading">Loading mutations...</div>
+<div id="variants_table_container" style="display: none;"></div>
+<div id="variants_table_empty" style="display: none;"></div>
+{% endblock %}

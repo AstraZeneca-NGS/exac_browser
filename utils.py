@@ -109,6 +109,7 @@ def add_consequence_to_variant(variant):
     variant['HGVSc'] = get_transcript_hgvs(worst_csq)
     variant['HGVS'] = get_proper_hgvs(worst_csq)
     variant['CANONICAL'] = worst_csq['CANONICAL']
+    variant['gene'] = worst_csq['Gene_Name']
     variant['indel'] = len(variant['ref']) != len(variant['alt'])
     if csq_order_dict[variant['major_consequence']] <= csq_order_dict["frameshift_variant"]:
         variant['category'] = 'lof_variant'
@@ -183,6 +184,7 @@ csq_order = ["transcript_ablation",
 "start_lost",  # new in v81
 "initiator_codon_variant",  # deprecated
 "transcript_amplification",
+"disruptive_inframe_insertion",
 "disruptive_inframe_deletion",
 "inframe_insertion",
 "inframe_deletion",

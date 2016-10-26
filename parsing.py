@@ -132,10 +132,14 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 samples_data = fields[-len(samples):]
                 samples_data_info = fields[-len(samples) - 1].split(':')
                 variant['sample_data'] = []
+                variant['sample_af'] = []
+                variant['sample_depth'] = []
                 for idx, sample in enumerate(samples):
                     fs = samples_data[idx].split(':')
                     if len(fs) < 6:
                         variant['sample_data'].append('')
+                        variant['sample_af'].append(0)
+                        variant['sample_depth'].append(0)
                         continue
                     freq_col = samples_data_info.index('AF')
                     depth_col = samples_data_info.index('DP')
@@ -143,6 +147,8 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                     if freq.replace('.', '', 1).isdigit():
                         freq = str(float(freq) * 100) + '%'
                     variant['sample_data'].append('AF:' + freq + ',DP:' + depth)
+                    variant['sample_af'].append(freq)
+                    variant['sample_depth'].append(depth)
 
                 if variant['chrom'] in ('X', 'Y'):
                     # variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
