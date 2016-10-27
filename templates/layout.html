@@ -56,7 +56,10 @@
                 }
             );
             searchBar.bind('typeahead:selected', function(obj, datum) {
-                window.location.href = '/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=' + datum.value;
+                if ('{{ sample_name }}' != 'None')
+                    window.location.href = '/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=' + datum.value;
+                else
+                    window.location.href = '/{{ genome }}/{{ project_name }}/awesome?query=' + datum.value;
             });
 
             var projects = new Bloodhound({
