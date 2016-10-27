@@ -42,9 +42,12 @@ logging.getLogger().setLevel(logging.INFO)
 
 hostname = socket.gethostname()
 is_local = 'local' in hostname or 'Home' in hostname or environ.get('PYTHONUNBUFFERED')
+is_chara = 'chara' in hostname
 
 if is_local:
     HOST_IP = 'localhost'
+elif is_chara:
+    HOST_IP = '172.18.72.170'
 else:
     HOST_IP = '172.18.72.171'
 
