@@ -533,7 +533,7 @@ def load_db():
         sys.exit(1)
     all_procs = []
     for load_function in [load_variants_file, load_base_coverage, load_evaluate_capture_data, load_gene_models,
-                          load_cnv_models, load_cnv_genes, load_population_coverage]:
+                          load_population_coverage]: # CNV: load_cnv_models, load_cnv_genes,
         procs = load_function()
         all_procs.extend(procs)
         print("Started %s processes to run %s" % (len(procs), load_function.__name__))
@@ -1036,8 +1036,10 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
                                                                             use_population_data=True)
             cnvs_in_transcript = None
             cnvs_per_gene = None
-            population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
-            population_cnvs_per_gene = lookups.get_cnvs(db, gene_id)
+            population_cnvs_in_transcript = None
+            population_cnvs_per_gene = None
+            # population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            # population_cnvs_per_gene = lookups.get_cnvs(db, gene_id)
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
             constraint_info = lookups.get_constraint_for_transcript(db, project_genome, transcript_id)
 
@@ -1100,8 +1102,10 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
             variants_in_transcript = lookups.get_variants_in_transcript(db, project_name, project_genome, transcript_id, sample_name)
             cnvs_in_transcript = None
             cnvs_per_gene = None
-            population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
-            population_cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
+            population_cnvs_in_transcript = None
+            population_cnvs_per_gene = None
+            # population_cnvs_in_transcript = lookups.get_exons_cnvs(db, transcript_id)
+            # population_cnvs_per_gene = lookups.get_cnvs(db, transcript['gene_id'])
             coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING,
                                                                  transcript['xstop'] + EXON_PADDING, project_name, project_genome, sample_name)
             population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
