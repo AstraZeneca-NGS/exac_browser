@@ -72,7 +72,7 @@ app.config.update(dict(
     DB_NAME='exac', 
     DEBUG=True,
     SECRET_KEY='development key',
-    LOAD_DB_PARALLEL_PROCESSES = 12,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
+    LOAD_DB_PARALLEL_PROCESSES = 8,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
@@ -152,7 +152,7 @@ def load_coverage(coverage_files, i, n, coverage_db):
     coverage_generator = parse_tabix_file_subset(coverage_files, i, n, get_base_coverage_from_file,
                                                  proc_name='Base coverage')
     try:
-        coverage_db.insert(coverage_generator, w=0, j=0)
+        coverage_db.insert(coverage_generator, w=0)
     except pymongo.errors.InvalidOperation:
         pass  # handle error when coverage_generator is empty
 
@@ -756,7 +756,7 @@ def sample_page(sample_name, project_name, project_genome):
         project_name=project_name,
         genome=project_genome,
         sample_names=sample_names,
-        sample_name=sample_name,
+        sample_name=sample_name if sample_name else '',
         sample_variants=variants,
         sample_variants_json=JSONEncoder().encode(variants)
     )
@@ -986,6 +986,7 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
             igv_genes_index=igv_genes_index,
             read_viz=read_viz_dict,
             bam_url=bam_fpath,
+            sample_name=sample_name if sample_name else '',
             sample_names=sample_names,
             read_group=read_group
         )
@@ -1049,7 +1050,7 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
             t = render_template(
                 'gene.html',
                 sample_names=sample_names,
-                sample_name=sample_name,
+                sample_name=sample_name if sample_name else '',
                 project_name=project_name,
                 genome=project_genome,
                 gene=gene,
@@ -1119,7 +1120,7 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
             t = render_template(
                 'transcript.html',
                 sample_names=sample_names,
-                sample_name=sample_name,
+                sample_name=sample_name if sample_name else '',
                 project_name=project_name,
                 genome=project_genome,
                 transcript=transcript,
@@ -1175,7 +1176,7 @@ def region_page(project_name, project_genome, sample_name, region_id):
                 return render_template(
                     'region.html',
                     sample_names=sample_names,
-                    sample_name=sample_name,
+                    sample_name=sample_name if sample_name else '',
                     project_name=project_name,
                     genome=project_genome,
                     genes_in_region=None,
@@ -1197,7 +1198,7 @@ def region_page(project_name, project_genome, sample_name, region_id):
             t = render_template(
                 'region.html',
                 sample_names=sample_names,
-                sample_name=sample_name,
+                sample_name=sample_name if sample_name else '',
                 project_name=project_name,
                 genome=project_genome,
                 genes_in_region=genes_in_region,

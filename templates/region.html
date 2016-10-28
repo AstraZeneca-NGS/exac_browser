@@ -8,7 +8,9 @@
         window.table_variants = variants;
     </script>
     <div class="container">
-        <h1>Sample: {{ sample_name }}</h1>
+        {% if sample_name  %}
+            <h1>Sample: {{ sample_name }}</h1>
+        {% endif %}
         {% if rsid %}
             <h1>RSID: {{ rsid }}</h1>
         {% elif stop == None %}
@@ -36,9 +38,15 @@
                 <h3>Coverage summary</h3>
                 <div>
                     <h4>Sample-level</h4>
-                    {% with plot_id = 'sample' %}
-                        {% include 'region_display.html' %}
-                    {% endwith %}
+                    {% if sample_name %}
+                        {% with plot_id = 'sample' %}
+                            {% include 'region_display.html' %}
+                        {% endwith %}
+                    {% else %}
+                        {% with plot_id = 'project' %}
+                            {% include 'region_display.html' %}
+                        {% endwith %}
+                    {% endif %}
                 </div>
                 <div>
                     <h4>Population-averaged (source: <a href="http://exac.broadinstitute.org/">exac.broadinstitute.org</a>)</h4>

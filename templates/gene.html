@@ -280,9 +280,15 @@
                 <h4>(<span class="hidden-xs">Coverage shown for </span><a href="http://www.ensembl.org/Help/Glossary?id=346" target="_blank">canonical transcript</a>: {{ transcript.transcript_id }})</h4>
                 <div>
                     <h4>Sample-level</h4>
-                    {% with plot_id = 'sample' %}
-                        {% include 'transcript_display.html' %}
-                    {% endwith %}
+                    {% if sample_name %}
+                        {% with plot_id = 'sample' %}
+                            {% include 'transcript_display.html' %}
+                        {% endwith %}
+                    {% else %}
+                        {% with plot_id = 'project' %}
+                            {% include 'transcript_display.html' %}
+                        {% endwith %}
+                    {% endif %}
                 </div>
                 <div>
                     <h4>Population-averaged (source: <a href="http://exac.broadinstitute.org/">exac.broadinstitute.org</a>)</h4>

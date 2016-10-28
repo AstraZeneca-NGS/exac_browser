@@ -215,6 +215,7 @@ function change_region_chart_metric(data, metric, container) {
 $(document).ready(function() {
     var plot_id = '{{ plot_id }}';
     var population_plot = plot_id == 'population';
+    var sample_plot = plot_id == 'sample';
     var region_plot_container = '#region_plot_container_' + plot_id;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
     var variants = !population_plot ? window.variants : [];
@@ -225,7 +226,7 @@ $(document).ready(function() {
         }
     }
 
-    if (!population_plot)
+    if (sample_plot)
         $('.coverage_subcat_selectors.' + plot_id).hide();
     // Change coverage plot
     $('.coverage_metric_buttons.' + plot_id).change(function () {
@@ -235,7 +236,7 @@ $(document).ready(function() {
             $('#over_x_select_container_' + plot_id).show();
             v = $('#over_x_select_' + plot_id).val().replace('X', '');
         } else {
-            if (population_plot)
+            if (!sample_plot)
                 $('#average_select_container_' + plot_id).show();
             v = $("#average_select_" + plot_id).val();
         }

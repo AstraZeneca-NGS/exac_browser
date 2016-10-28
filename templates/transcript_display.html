@@ -55,6 +55,7 @@
 $(document).ready(function() {
     var plot_id = '{{ plot_id }}';
     var population_plot = plot_id == 'population';
+    var sample_plot = plot_id == 'sample';
     var gene_plot_container = '#gene_plot_container_' + plot_id;
     var include_utr_checkbox = '#include_utrs_checkbox_' + plot_id;
     var cnv_svg = 'cnv_svg_' + plot_id;
@@ -98,7 +99,7 @@ $(document).ready(function() {
         $('#gene_plot_' + plot_id).hide();
         $('#not_covered_' + plot_id).show();
     }
-    if (!population_plot)
+    if (sample_plot)
         $('.coverage_subcat_selectors.' + plot_id).hide();
     // Change coverage plot
     $('.coverage_metric_buttons.' + plot_id).change(function () {
@@ -107,7 +108,7 @@ $(document).ready(function() {
             $('#over_x_select_container_' + plot_id).show();
             v = $('#over_x_select_' + plot_id).val().replace('X', '');
         } else {
-            if (population_plot)
+            if (!sample_plot)
                 $('#average_select_container_' + plot_id).show();
             v = $("#average_select_" + plot_id).val();
         }
@@ -170,7 +171,7 @@ $(document).ready(function() {
             $('#over_x_select_container_' + plot_id).show();
             v = $('#over_x_select_' + plot_id).val().replace('X', '');
         } else {
-            if (plot_id != 'sample')
+            if (!sample_plot)
                 $('#average_select_container_' + plot_id).show();
             v = $("#average_select_" + plot_id).val();
         }
