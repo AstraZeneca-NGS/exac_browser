@@ -11,11 +11,12 @@
         $('#pager').hide();
 
         $("#variants_table").tablesorter({
-            sortList: [[1,0]]
+            sortList: [[2,0]]
         });
 
         update_variants();
-        $('.consequence_display_buttons, .indel_display_buttons').change(function () {
+        $('#confident_selectors_container').show();
+        $('.consequence_display_buttons, .indel_display_buttons, .confident_display_buttons').change(function () {
             setTimeout(function() {
                 update_variants();
             }, 10);

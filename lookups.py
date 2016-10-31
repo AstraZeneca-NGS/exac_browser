@@ -91,7 +91,8 @@ def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=Fa
     if variants:
         sample_index = variants[0]['sample_names'].index(sample_name)
         for variant in variants:
-            if variant['sample_data'][sample_index] and variant['genes']:
+            if variant['sample_data'][sample_index] and variant['genes'] and \
+                    (variant['significance'] == 'likely' or variant['significance'] == 'known'):
                 if 'sample_af' in variant:
                     variant['freq'] = variant['sample_af'][sample_index]
                 if 'sample_depth' in variant:

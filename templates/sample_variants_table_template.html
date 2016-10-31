@@ -6,13 +6,16 @@
     <thead>
         <tr>
             <th class="hidden-xs">Gene</th>
+            <th class="hidden-xs">AA change</th>
             <th class='hidden-xs'>Position</th>
+            <th class="hidden-xs">cDNA change</th>
             <th class="hidden-xs">Effect</th>
             <th class="tooltip-table-header" data-tooltip="Various flags (LoF from LOFTEE, MNP) &#xa; that may change annotation/confidence">Flags</th>
-            <th class="hidden-xs">AA change</th>
-            <th class="hidden-xs">cDNA change</th>
+            <th class="hidden-xs">Significance</th>
+            <th class="hidden-xs">Databases</th>
             <th class="hidden-xs">Freq</th>
             <th class="hidden-xs">Depth</th>
+            <th class="hidden-xs">Callability issues</th>
         </tr>
     </thead>
     <tbody>
@@ -24,10 +27,26 @@
             category="<%= variant.category %>"
             filter_status="<%= variant.filter %>"
             major_consequence="<%= variant.major_consequence %>"
+            significance="<%= variant.significance %>"
+            incidentalome="<%= variant.incidentalome %>"
             indel="<%= variant.indel %>">
             <td class="hidden-xs" style="white-space: nowrap;"><a href="awesome?query=<%= variant.gene %>"><%= variant.gene %></a></td>
+            <td class='hidden-xs'>
+                <% if (variant.HGVS && variant.HGVS != '') { %>
+                    <% if (variant.HGVS.length > 20) { %>
+                        <%= variant.HGVS.slice(0,20) %>...<% } else { %>
+                        <%= variant.HGVS %><% } %><% if (variant.CANONICAL != 'YES') { %><span class="tooltip-table-header" data-tooltip="Annotation is for non-canonical transcript">&dagger;</span><% } %>
+                <% } %>
+            </td>
             <td class='hidden-xs numbers_td' style='text-align: left; white-space: nowrap;'>
                 <%= variant.chrom %>: <a href="variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>"><%= variant.pos %></a>
+            </td>
+            <td class="hidden-xs"> <% if (variant.HGVSc && variant.HGVSc != '') { %>
+                    <% if (variant.HGVSc.length > 20) { %>
+                        <%= variant.HGVSc.slice(0,20) %>...<% }
+                else { %>
+                        <%= variant.HGVSc %><% } %>
+                <% } %>
             </td>
             <td class="<%= variant.category %>" data-consequence="<%= variant.major_consequence %>"><b>
                 <% if (variant.major_consequence) { %>
@@ -40,31 +59,20 @@
                     <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
                         <span class="label label-<%= span_tag %> tooltip-table-header" data-tooltip="Variant annotation dubious: &#xa; see variant page for details"><%= flag %></span></a>
                 <% }); %></td>
-            <td class='hidden-xs'>
-                <% if (variant.HGVS && variant.HGVS != '') { %>
-                    <% if (variant.HGVS.length > 20) { %>
-                        <%= variant.HGVS.slice(0,20) %>...<% } else { %>
-                        <%= variant.HGVS %><% } %><% if (variant.CANONICAL != 'YES') { %><span class="tooltip-table-header" data-tooltip="Annotation is for non-canonical transcript">&dagger;</span><% } %>
-                <% } %>
+            <td class="hidden-xs">
+                <%= variant.significance %> <%= variant.reason %>
             </td>
-            <td class="hidden-xs"> <% if (variant.HGVSc && variant.HGVSc != '') { %>
-                    <% if (variant.HGVSc.length > 20) { %>
-                        <%= variant.HGVSc.slice(0,20) %>...<% }
-                else { %>
-                        <%= variant.HGVSc %><% } %>
-                <% } %>
+            <td class="hidden-xs">
+                <%= variant.datasets %>
             </td>
             <td class="hidden-xs numbers_td">
-                <% if (variant.freq) { %>
-                        <%= variant.freq %> <% }
-                else { %>
-                <% } %>
+                <%= variant.freq %>
             </td>
             <td class="hidden-xs numbers_td">
-                <% if (variant.depth) { %>
-                        <%= variant.depth %> <% }
-                else { %>
-                <% } %>
+                <%= variant.depth %>
+            </td>
+            <td class="hidden-xs">
+                <%= variant.incidentalome %>
             </td>
         </tr>
     <% }); %>

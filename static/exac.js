@@ -608,10 +608,14 @@ function update_variants() {
         .attr('id')
         .replace('consequence_', '')
         .replace('_variant_button', '');
-    var filterState = $('#filtered_checkbox').is(":checked")
+    var filterState = $('#filtered_checkbox').is(":checked");
     var indelState = $('.indel_display_buttons.active')
         .attr('id')
         .replace('indel_selection_', '')
+        .replace('_button', '');
+    var confidentState = $('.confident_display_buttons.active')
+        .attr('id')
+        .replace('confident_selection_', '')
         .replace('_button', '');
     $('[major_consequence]').hide()
     $('[major_consequence]').map(function(row) {
@@ -622,6 +626,12 @@ function update_variants() {
             return
         }
         if (indelState === 'indel' && $(this).attr('indel') === 'false') {
+            return
+        }
+        if (confidentState === 'confident' && $(this).attr('incidentalome')) {
+            return
+        }
+        if (confidentState === 'known' && $(this).attr('significance') !== 'known') {
             return
         }
         if (_.contains(categoryDefinitions[category], $(this).attr('major_consequence'))

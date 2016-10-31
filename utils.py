@@ -390,6 +390,10 @@ def format_value(value, unit='', human_readable=True, is_html=False):
     return '.'
 
 
+def filter_digits(s):
+    return ''.join(c for c in s if c.isdigit())
+
+
 def natural_key(s, _nsre=re.compile('([0-9]+)')):
     return [int(text) if text.isdigit() else text.lower()
             for text in re.split(_nsre, s)]

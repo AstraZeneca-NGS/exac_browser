@@ -99,9 +99,14 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant = {}
                 variant['chrom'] = fields[0]
                 variant['pos'] = pos
+                variant['rsid'] = None
+                variant['cosmicid'] = None
                 rs_ids = re.findall(r'rs\d+', fields[2])
                 if rs_ids:
                     variant['rsid'] = rs_ids[0]
+                cosmic_ids = re.findall(r'COSM\d+', fields[2])
+                if cosmic_ids:
+                    variant['cosmicid'] = cosmic_ids[0]
                 variant['xpos'] = get_xpos(variant['chrom'], variant['pos'])
                 variant['ref'] = ref
                 variant['alt'] = alt
@@ -178,7 +183,17 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 if 'GQ_HIST' in info_field:
                     hists_all = [info_field['GQ_HIST'].split(',')[0], info_field['GQ_HIST'].split(',')[i+1]]
                     variant['genotype_qualities'] = [zip(gq_mids, map(int, x.split('|'))) for x in hists_all]
-
+                variant['significance'] = info_field['Signif'] if 'Signif' in info_field else 'unknown'
+                variant['reason'] = '(' + info_field['Reason'].replace('_', ' ') + ')' if 'Reason' in info_field else ''
+                variant['incidentalome'] = info_field['Incidentalome'].replace('_', ' ') if 'Incidentalome' in info_field else ''
+                datasets = []
+                if variant['cosmicid']:
+                    datasets.append('<a href="http://cancer.sanger.ac.uk/cosmic/mutation/overview?id=' + \
+                                           filter_digits(variant['cosmicid']) + '">COSMIC</a>')
+                if variant['rsid']:
+                    datasets.append('<a href="http://www.ncbi.nlm.nih.gov/SNP/snp_ref.cgi?searchType=adhoc_search&type=rs&rs=' + \
+                                           filter_digits(variant['rsid']) + '">dbSNP</a>')
+                variant['datasets'] = ','.join(datasets)
                 yield variant
         except Exception:
             print("Error parsing vcf line: " + line)
