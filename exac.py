@@ -394,8 +394,9 @@ def load_gene_models():
         with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
             for gene in get_genes_from_features(features_file):
                 gene_id = gene['gene_id']
-                if gene_id in canonical_transcripts:
-                    gene['canonical_transcript'] = canonical_transcripts[gene_id]
+                if gene_id not in canonical_transcripts or gene['transcript_id'] != canonical_transcripts[gene_id]:
+                    continue
+                gene['canonical_transcript'] = canonical_transcripts[gene_id]
                 if gene_id in omim_annotations:
                     gene['omim_accession'] = omim_annotations[gene_id][0]
                     gene['omim_description'] = omim_annotations[gene_id][1]

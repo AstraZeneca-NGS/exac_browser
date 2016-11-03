@@ -297,14 +297,13 @@ def get_genes_from_features(features_file):
     Parse features bed file;
     Returns iter of gene dicts
     """
-    gene_ids = set()
     for line in features_file:
         if line.startswith('#'):
             continue
         fields = line.strip('\n').split('\t')
         feature_type = fields[6]
 
-        if feature_type != 'Gene':
+        if feature_type != 'Transcript':
             continue
 
         chrom = fields[0]
@@ -314,10 +313,10 @@ def get_genes_from_features(features_file):
         stop = int(fields[2])
         gene_id = fields[3]
         strand = fields[5]
-        if (gene_id, chrom) in gene_ids:
-            continue
-        gene_ids.add((gene_id, chrom))
+        transcript_id = fields[8]
+
         gene = {
+            'transcript_id': transcript_id,
             'gene_id': gene_id,
             'gene_name': gene_id,
             'gene_name_upper': gene_id.upper(),
