@@ -179,8 +179,8 @@ def _load_one(procs, samples_count, coverage_files, coverage):
     # load coverage first; variant info will depend on coverage
     coverage.ensure_index('xpos')
     num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    max_procs = max(1, num_procs / samples_count)
-    for i in range(max_procs):
+    num_procs = max(1, num_procs / samples_count)
+    for i in range(num_procs):
         p = Process(target=load_coverage, args=(coverage_files, i, num_procs, coverage))
         p.start()
         procs.append(p)
@@ -266,8 +266,8 @@ def load_variants_file(project_name=None, genome=None):
                 canonical_transcripts[gene] = transcript
 
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-        max_procs = max(1, num_procs / len(projects))
-        for i in range(max_procs):
+        num_procs = max(1, num_procs / len(projects))
+        for i in range(num_procs):
             p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
             p.start()
             procs.append(p)
@@ -310,9 +310,9 @@ def load_evaluate_capture_data(project_name=None, genome=None):
                 good_regions_fpaths = [min(regions_fpaths, key=lambda _fp: regions_by_lines_num[_fp])]
 
             num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-            max_procs = max(1, num_procs / len(projects))
-            print 'Loaded regions files: ' + ', '.join(good_regions_fpaths) + ', loading in ' + str(num_procs) + ' procs, ' + str(max_procs) + ' max procs'
-            for i in range(max_procs):
+            num_procs = max(1, num_procs / len(projects))
+            print 'Loaded regions files: ' + ', '.join(good_regions_fpaths) + ', loading in ' + str(num_procs) + ' procs'
+            for i in range(num_procs):
                 p = Process(target=load_regions, args=(good_regions_fpaths, i, num_procs, db))
                 p.start()
                 procs.append(p)

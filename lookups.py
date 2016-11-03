@@ -88,6 +88,7 @@ def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=Fa
         variants = db[get_project_key(project_name, genome)].variants.find({'filter': 'PASS'})
     else:
         variants = db[get_project_key(project_name, genome)].variants.find()
+    variants = list(variants)
     if variants:
         sample_index = variants[0]['sample_names'].index(sample_name)
         for variant in variants:
