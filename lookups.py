@@ -292,14 +292,17 @@ def get_variants_in_region(db, project_name, genome, chrom, start, stop, sample_
     """
     xstart = get_xpos(chrom, start)
     xstop = get_xpos(chrom, stop)
-    variants = list(db[get_project_key(project_name, genome)].variants.find({
+    variants = []
+    all_variants = list(db[get_project_key(project_name, genome)].variants.find({
         'xpos': {'$lte': xstop, '$gte': xstart}
     }, projection={'_id': False}, limit=SEARCH_LIMIT))
-    add_consequence_to_variants(variants)
-    for variant in variants:
-        if sample_name and check_variant_samples(variant, sample_name):
-            remove_extraneous_information(variant)
-    return list(variants)
+    add_consequence_to_variants(all_variants)
+    for variant in all_variants:
+        if sample_name and not check_variant_samples(variant, sample_name):
+            continue
+        remove_extraneous_information(variant)
+        variants.append(variant)
+    return variants
 
 
 def get_metrics(db, project_name, genome, variant):

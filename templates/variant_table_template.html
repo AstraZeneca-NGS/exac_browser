@@ -53,7 +53,7 @@
             indel="<%= variant.indel %>"
           >
             <td class="omit_csv">
-                <% if ("{{ sample_name }}" != "None") { %>
+                <% if ({{ sample_name }}) { %>
                     <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
                 <% } else { %>
                     <a href="/{{ genome }}/{{ project_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
