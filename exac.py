@@ -952,7 +952,7 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
         if sample_name:
             sample_names = [sample_name]
         elif 'sample_names' in variant:
-            sample_names = [sample_name.replace('-', '_') for idx, sample_name in enumerate(variant['sample_names'])
+            sample_names = [sample_name for idx, sample_name in enumerate(variant['sample_names'])
                             if variant['sample_data'][idx]]
 
         if 'transcripts' in variant and variant['transcripts']:

@@ -197,7 +197,7 @@
                         <dd>{{ variant.allele_count }} / {{ variant.allele_num }}</dd>
                         <dt>UCSC</dt>
                         <dd>
-                            <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&highlight=hg19.chr{{ variant.chrom }}%3A{{ variant.pos }}-{{ variant.pos + variant.ref|length - 1 }}&position=chr{{ variant.chrom }}%3A{{ variant.pos - 25 }}-{{ variant.pos + variant.ref|length - 1 + 25 }}" target="_blank">
+                            <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?db={{ genome }}&highlight={{ genome }}.{{ variant.chrom }}%3A{{ variant.pos }}-{{ variant.pos + variant.ref|length - 1 }}&position=chr{{ variant.chrom }}%3A{{ variant.pos - 25 }}-{{ variant.pos + variant.ref|length - 1 + 25 }}" target="_blank">
                                 {{ variant.variant_id }}
                                 <i class="fa fa-external-link"></i>
                             </a>
@@ -476,7 +476,7 @@
                         height: 300,
                         minHeight: 300,
                         autoHeight: false,
-                        readgroup: "{{ read_group }}" + sample_name,  //readgroup: '1-157768000-G-C_hom10',
+                        readgroup: "{{ read_group }}" + sample_name.replace('-', '_')  //readgroup: '1-157768000-G-C_hom10',
                     };
                 };
  
@@ -567,12 +567,23 @@
 
                 //initialize IGV.js browser
                 var locus = '{{ variant.chrom }}:{{ variant.pos-150 }}-{{ variant.pos+150 }}';
+                var genome = '{{ genome }}';
+                var reference = {};
+                if (genome == 'hg19') {
+                    reference['id'] = 'hg19';
+                    reference['fastaURL'] = 'http://igv.broadinstitute.org/genomes/seq/1kg_v37/human_g1k_v37_decoy.fasta';
+                    reference['cytobandURL'] = 'http://igv.broadinstitute.org/genomes/seq/b37/b37_cytoband.txt';
+                }
+                else if (genome == 'hg38') {
+                    reference['id'] = 'hg38';
+                    reference['fastaURL'] = 'http://igv.broadinstitute.org/genomes/seq/hg38/hg38.fa';
+                }
                 var options = {
                     showCommandBar: true,
-                    genome: 'hg19',
+                    reference: reference,
                     locus: locus,
                     showKaryo: false,
-                    tracks: tracks,
+                    tracks: tracks
                 };
 
                 igv.createBrowser($("#igv-container")[0], options);
