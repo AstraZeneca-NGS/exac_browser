@@ -194,6 +194,10 @@ TODO: come up with a better way to position tooltip
 .hs {
   margin-left: 0.2em; }
 
+.key_row td {
+   font-weight: bold;
+}
+
 .variant_selector_group {
   display: flex;
   flex-direction: row;

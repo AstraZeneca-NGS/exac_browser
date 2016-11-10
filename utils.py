@@ -20,6 +20,9 @@ METRICS = [
     'VQSLOD'
 ]
 
+EXAC_FILES_DIRECTORY = '../exac_data/'
+KEY_GENES_FPATH = os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'az_key_genes.300.txt')
+
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -339,6 +342,17 @@ def get_minimal_representation(pos, ref, alt):
             ref = ref[1:]
             pos += 1
         return pos, ref, alt
+
+
+def set_key_genes(records, key_genes_fpath):
+    key_genes = []
+    with open(key_genes_fpath) as f:
+        for line in f:
+            key_genes.append(line.strip())
+
+    for record in records:
+        gene_in_az300 = record['gene'] in key_genes
+        record['is_key_gene'] = gene_in_az300
 
 
 def format_value(value, unit='', human_readable=True, is_html=False):

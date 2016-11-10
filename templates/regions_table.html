@@ -8,6 +8,7 @@
         window.regions_template = _.template($('#regions-table-template').html());
         $('#regions_table_container').html(regions_template({table_regions: table_regions}));
         $('#pager').hide();
+        $('[is_key_gene=true]').addClass('key_row');
         $('input[type=radio][name=depth_thresholds]').change(function() {
             $('[depth_threshold]').hide();
             $('[depth_threshold=' + this.value + ']').show();

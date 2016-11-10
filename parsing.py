@@ -204,6 +204,11 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
 def get_regions(regions_file, canonical_transcripts):
     header_fields = ['chrom', 'start', 'stop', 'size', 'gene', 'depth', 'samples', 'annotation']
     depth_threshold = 0
+    key_genes = []
+    with open(KEY_GENES_FPATH) as f:
+        for line in f:
+            key_genes.append(line.strip())
+
     for line in regions_file:
         if line.startswith('#'):
             if 'Coverage threshold Nx is ' in line:
@@ -220,6 +225,7 @@ def get_regions(regions_file, canonical_transcripts):
         if not gene or gene == '.' or gene == 'None':
             continue
 
+        gene_in_az300 = gene in key_genes
         anno_line = fields[header_fields.index('annotation')]
         percent_by_type = [kv.split(': ') for kv in anno_line.split(', ') if kv]
         assert all(len(kv) == 2 for kv in percent_by_type), anno_line
@@ -233,6 +239,7 @@ def get_regions(regions_file, canonical_transcripts):
             'start_str': format_value(start, is_html=True, human_readable=True),
             'stop_str': format_value(stop, is_html=True, human_readable=True),
             'gene': gene,
+            'is_key_gene': gene_in_az300,
             'depth': fields[header_fields.index('depth')],
             'samples': fields[header_fields.index('samples')],
             'annotation': annotation,
