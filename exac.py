@@ -43,13 +43,8 @@ logging.getLogger().setLevel(logging.INFO)
 hostname = socket.gethostname()
 is_local = 'local' in hostname or 'Home' in hostname or environ.get('PYTHONUNBUFFERED')
 is_chara = 'chara' in hostname
+is_rask = 'rask' in hostname
 
-if is_local:
-    HOST_IP = 'localhost'
-elif is_chara:
-    HOST_IP = '172.18.72.170'
-else:
-    HOST_IP = '172.18.72.171'
 
 ADMINISTRATORS = (
     'vladislav.sav@gmail.com',
@@ -1372,8 +1367,20 @@ def apply_caching(response):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        host_ip = sys.argv[1]
+    elif is_local:
+        host_ip = 'localhost'
+    elif is_chara:
+        host_ip = '172.18.72.170'
+    elif is_rask:
+        host_ip = '172.18.72.171'
+    else:
+        sys.stderr.write('Please, specify host IP as the first argument. Usage: ' + __file__ + ' <HOST_IP>\n')
+        sys.exit(1)
+
     # adds Flask command line options for setting host, port, etc.
-    app.run(host=HOST_IP, threaded=True, debug=True, extra_files='autocomplete_projects.txt')
+    app.run(host=host_ip, threaded=True, debug=True, extra_files='autocomplete_projects.txt')
     # runner = Runner(app)
     # runner.run()
     # manager = Manager(app)
