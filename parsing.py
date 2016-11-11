@@ -222,15 +222,18 @@ def get_regions(regions_file, canonical_transcripts):
         start = int(fields[header_fields.index('start')])
         stop = int(fields[header_fields.index('stop')])
         gene = fields[header_fields.index('gene')]
-        if not gene or gene == '.' or gene == 'None':
+        if not gene or gene == '.' or gene == 'None' or 'not_a_gene' in gene:
             continue
 
         gene_in_az300 = gene in key_genes
-        anno_line = fields[header_fields.index('annotation')]
-        percent_by_type = [kv.split(': ') for kv in anno_line.split(', ') if kv]
-        assert all(len(kv) == 2 for kv in percent_by_type), anno_line
-        percent_by_type = [(k, v) for k, v in percent_by_type if int(v.replace('%', '')) >= 50]
-        annotation = ', '.join(k + ': ' + v for k, v in percent_by_type)
+        anno_line = fields[header_fields.index('annotation')] if len(fields) > header_fields.index('annotation') else ''
+        if anno_line:
+            percent_by_type = [kv.split(': ') for kv in anno_line.split(', ') if kv]
+            assert all(len(kv) == 2 for kv in percent_by_type), anno_line
+            percent_by_type = [(k, v) for k, v in percent_by_type if int(v.replace('%', '')) >= 50]
+            annotation = ', '.join(k + ': ' + v for k, v in percent_by_type)
+        else:
+            annotation = ''
 
         d = {
             'chrom': chrom,

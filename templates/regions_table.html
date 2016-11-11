@@ -28,6 +28,23 @@
             var timestamp = date_format(new Date());
             exportTableToCSV.apply(this, [$('#regions_table'), 'exac_' + output_name + '_' + timestamp + '.csv']);
         });
+        $('#regions_selectors_container').show();
+        $('.regions_display_buttons').change(function () {
+            setTimeout(function() {
+                var keyGeneState = $('.regions_display_buttons.active')
+                    .attr('id')
+                    .replace('regions_selection_', '')
+                    .replace('_button', '');
+                $('[depth_threshold]').hide();
+                $('[depth_threshold]').map(function(row) {
+                    if (keyGeneState === 'az300' && $(this).attr('is_key_gene') !== 'true') {
+                        return
+                    }
+                    if ($(this).attr('depth_threshold') == $('input[type=radio][name=depth_thresholds]').val())
+                        $(this).show();
+                });
+            }, 10);
+        });
     });
 </script>
 <div id="regions_loading">Loading filtered regions...</div>

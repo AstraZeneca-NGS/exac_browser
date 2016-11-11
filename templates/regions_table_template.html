@@ -1,5 +1,17 @@
 <script type="text/template" id="regions-table-template">
-<span>
+<div id="regions_selectors_container" style="display: none; float: left;">
+    <label for="region_types">
+        <span class="btn-group" data-toggle="buttons" id="region_types">
+            <button class="btn btn-primary regions_display_buttons active" id="regions_selection_all_button">
+                <input type="radio">All
+            </button>
+            <button class="btn btn-primary regions_display_buttons" id="regions_selection_az300_button">
+                <input type="radio">AZ300
+            </button>
+        </span>
+    </label>
+</div>
+<span style="float: right;">
     <a class="btn btn-success hidden-xs" id="export_to_csv">Export table to CSV</a>
 </span>
 <table id="regions_table" class="tablesorter">
