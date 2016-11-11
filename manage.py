@@ -9,7 +9,7 @@ manager = Manager(app)
 
 @manager.command
 def hello():
-    print "hello"
+    print("hello")
 
 
 @manager.command

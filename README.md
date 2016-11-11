@@ -24,7 +24,7 @@ First (as this can run in parallel), get the datasets that the browser uses and 
 
 Now clone the repo: 
 
-    git clone https://github.com/konradjk/exac_browser.git
+    git clone https://github.com/AstraZeneca-NGS/exac_browser.git
 
 ### Dependencies
 
@@ -41,7 +41,8 @@ Create a directory to hold your mongo database files:
 
     mkdir database
 
-In a separate tab, start the mongo database server:
+In a separate tab, start the mongo database server. Use NUMA runner that addresses 
+mongo performance issues (see details here http://www.xtivia.com/running-mongodb-on-numa-hardware/):
     
     numactl --interleave=all mongod --dbpath database/
 

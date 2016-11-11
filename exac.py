@@ -313,7 +313,7 @@ def load_evaluate_capture_data(project_name=None, genome=None):
                 p.start()
                 procs.append(p)
 
-    print 'Done loading capture evaluating info. Took %s seconds' % int(time.time() - start_time)
+    print('Done loading capture evaluating info. Took %s seconds' % int(time.time() - start_time))
     return procs
 
 
@@ -360,7 +360,7 @@ def load_gene_models():
         db.genes.drop()
         db.transcripts.drop()
         db.exons.drop()
-        print 'Dropped db.genes, db.transcripts, and db.exons for ' + genome
+        print('Dropped db.genes, db.transcripts, and db.exons for ' + genome)
 
         start_time = time.time()
 
@@ -383,7 +383,7 @@ def load_gene_models():
                 other_names = [other_name.upper() for other_name in dbnsfp_gene['gene_other_names']]
                 dbnsfp_info[dbnsfp_gene['ensembl_gene']] = (dbnsfp_gene['gene_full_name'], other_names)'''
 
-        print 'Done loading metadata. Took %s seconds' % int(time.time() - start_time)
+        print('Done loading metadata. Took %s seconds' % int(time.time() - start_time))
 
         # grab genes from GTF
         start_time = time.time()
@@ -401,7 +401,7 @@ def load_gene_models():
                     gene['other_names'] = dbnsfp_info[gene_id][1]'''
                 db.genes.insert(gene, w=0)
 
-        print 'Done loading genes. Took %s seconds' % int(time.time() - start_time)
+        print('Done loading genes. Took %s seconds' % int(time.time() - start_time))
 
         start_time = time.time()
         db.genes.ensure_index('gene_id')
@@ -410,30 +410,30 @@ def load_gene_models():
         db.genes.ensure_index('other_names')
         db.genes.ensure_index('xstart')
         db.genes.ensure_index('xstop')
-        print 'Done indexing gene table. Took %s seconds' % int(time.time() - start_time)
+        print('Done indexing gene table. Took %s seconds' % int(time.time() - start_time))
 
         # and now transcripts
         start_time = time.time()
         with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
             db.transcripts.insert((transcript for transcript in get_transcripts_from_features(features_file)), w=0)
-        print 'Done loading transcripts. Took %s seconds' % int(time.time() - start_time)
+        print('Done loading transcripts. Took %s seconds' % int(time.time() - start_time))
 
         start_time = time.time()
         db.transcripts.ensure_index('transcript_id')
         db.transcripts.ensure_index('gene_id')
-        print 'Done indexing transcript table. Took %s seconds' % int(time.time() - start_time)
+        print('Done indexing transcript table. Took %s seconds' % int(time.time() - start_time))
 
         # Building up gene definitions
         start_time = time.time()
         with gzip.open(app.config['FEATURES_FILE'] % genome) as features_file:
             db.exons.insert((exon for exon in get_exons_from_features(features_file)), w=0)
-        print 'Done loading exons. Took %s seconds' % int(time.time() - start_time)
+        print('Done loading exons. Took %s seconds' % int(time.time() - start_time))
 
         start_time = time.time()
         db.exons.ensure_index('exon_id')
         db.exons.ensure_index('transcript_id')
         db.exons.ensure_index('gene_id')
-        print 'Done indexing exon table. Took %s seconds' % int(time.time() - start_time)
+        print('Done indexing exon table. Took %s seconds' % int(time.time() - start_time))
 
     return []
 
@@ -442,7 +442,7 @@ def load_cnv_models():
     db = get_db()
 
     db.cnvs.drop()
-    print 'Dropped db.cnvs.'
+    print('Dropped db.cnvs.')
 
     start_time = time.time()
     with open(app.config['CNV_FILE']) as cnv_txt_file:
@@ -451,7 +451,7 @@ def load_cnv_models():
             #progress.update(gtf_file.fileobj.tell())
         #progress.finish()
 
-    print 'Done loading CNVs. Took %s seconds' % int(time.time() - start_time)
+    print('Done loading CNVs. Took %s seconds' % int(time.time() - start_time))
 
 def drop_cnv_genes():
     db = get_db()
@@ -467,7 +467,7 @@ def load_cnv_genes():
             #progress.update(gtf_file.fileobj.tell())
         #progress.finish()
 
-    print 'Done loading CNVs in genes. Took %s seconds' % int(time.time() - start_time)
+    print('Done loading CNVs in genes. Took %s seconds' % int(time.time() - start_time))
 
 
 def load_dbsnp_file():
@@ -492,7 +492,7 @@ def load_dbsnp_file():
     start_time = time.time()
     dbsnp_file = app.config['DBSNP_FILE']
 
-    print "Loading dbsnp from %s" % dbsnp_file
+    print("Loading dbsnp from %s" % dbsnp_file)
     if os.path.isfile(dbsnp_file + ".tbi"):
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
     else:
@@ -628,7 +628,7 @@ def precalculate_metrics(project_name=None, genome=None):
         projects = get_projects(full_db)
     for project_name, genome in projects:
         db = full_db[get_project_key(project_name, genome)]
-        print 'Reading %s variants for %s...' % (db.variants.count(), project_name)
+        print('Reading %s variants for %s...' % (db.variants.count(), project_name))
         metrics = defaultdict(list)
         binned_metrics = defaultdict(list)
         progress = 0
@@ -650,10 +650,10 @@ def precalculate_metrics(project_name=None, genome=None):
                         break
             progress += 1
             if not progress % 100000:
-                print 'Read %s variants. Took %s seconds' % (progress, int(time.time() - start_time))
-        print 'Done reading variants. Dropping metrics database... '
+                print('Read %s variants. Took %s seconds' % (progress, int(time.time() - start_time)))
+        print('Done reading variants. Dropping metrics database... ')
         db.metrics.drop()
-        print 'Dropped metrics database. Calculating metrics...'
+        print('Dropped metrics database. Calculating metrics...')
         for metric in metrics:
             bin_range = None
             data = map(numpy.log, metrics[metric]) if metric == 'DP' else metrics[metric]
@@ -685,7 +685,7 @@ def precalculate_metrics(project_name=None, genome=None):
                 'hist': list(hist[0])
             })
         db.metrics.ensure_index('metric')
-    print 'Done pre-calculating metrics!'
+    print('Done pre-calculating metrics!')
 
 
 def get_db():
@@ -792,7 +792,7 @@ def awesome(project_genome, sample_name, project_name):
     query = request.args.get('query')
     datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, sample_name, query)
 
-    print "Searched for %s: %s" % (datatype, identifier)
+    print("Searched for %s: %s" % (datatype, identifier))
     if datatype == 'gene':
         return redirect('/{}/{}/{}/gene/{}'.format(project_genome, project_name, sample_name, identifier))
     elif datatype == 'transcript':
@@ -817,7 +817,7 @@ def awesome_project(project_genome, project_name):
     query = request.args.get('query')
     datatype, identifier = lookups.get_awesomebar_result(db, project_name, project_genome, None, query)
 
-    print "Searched for %s: %s" % (datatype, identifier)
+    print("Searched for %s: %s" % (datatype, identifier))
     if datatype == 'gene':
         return redirect('/{}/{}/gene/{}'.format(project_genome, project_name, identifier))
     elif datatype == 'transcript':
@@ -964,7 +964,7 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
                     break
         if not read_group:
             read_group = '%(chrom)s-%(pos)s-%(ref)s-%(alt)s-' % locals()
-        print 'Rendering variant: %s' % variant_str
+        print('Rendering variant: %s' % variant_str)
         return render_template(
             'variant.html',
             project_name=project_name,
@@ -988,7 +988,7 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
             read_group=read_group
         )
     except Exception:
-        print 'Failed on variant:', variant_str, ';Error=', traceback.format_exc()
+        print('Failed on variant:', variant_str, ';Error=', traceback.format_exc())
         abort(404)
 
 
@@ -1075,10 +1075,10 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
                 constraint=constraint_info
             )
             cache.set(cache_key, t, timeout=1000*60)
-        print 'Rendering gene: %s' % gene_id
+        print('Rendering gene: %s' % gene_id)
         return t
     except Exception, e:
-        print 'Failed on gene:', gene_id, ';Error=', traceback.format_exc()
+        print('Failed on gene:', gene_id, ';Error=', traceback.format_exc())
         abort(404)
 
 
@@ -1140,10 +1140,10 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
                 population_cnvgenes_json=JSONEncoder().encode(population_cnvs_per_gene),
             )
             cache.set(cache_key, t, timeout=1000*60)
-        print 'Rendering transcript: %s' % transcript_id
+        print('Rendering transcript: %s' % transcript_id)
         return t
-    except Exception, e:
-        print 'Failed on transcript:', transcript_id, ';Error=', traceback.format_exc()
+    except Exception as e:
+        print('Failed on transcript:', transcript_id, ';Error=', traceback.format_exc())
         abort(404)
 
 
@@ -1159,7 +1159,7 @@ def region_page(project_name, project_genome, sample_name, region_id):
         region = region_id.split('-')
         cache_key = 't-region-{}-{}-{}'.format(project_genome, project_name, region_id)
         t = cache.get(cache_key)
-        print 'Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id)
+        print('Rendering %sregion: %s' % ('' if t is None else 'cached ', region_id))
         if t is None:
             sample_names = lookups.get_project_samples(db, project_name, project_genome)
             chrom = region[0]
@@ -1210,10 +1210,10 @@ def region_page(project_name, project_genome, sample_name, region_id):
                 population_coverage=population_coverage_array,
                 population_coverage_json=JSONEncoder().encode(population_coverage_array),
             )
-        print 'Rendering region: %s' % region_id
+        print('Rendering region: %s' % region_id)
         return t
-    except Exception, e:
-        print 'Failed on region:', region_id, ';Error=', traceback.format_exc()
+    except Exception as e:
+        print('Failed on region:', region_id, ';Error=', traceback.format_exc())
         abort(404)
 
 
@@ -1225,7 +1225,7 @@ def dbsnp_page(rsid, project_name, genome):
         chrom = None
         start = None
         stop = None
-        print 'Rendering rsid: %s' % rsid
+        print('Rendering rsid: %s' % rsid)
         return render_template(
             'region.html',
             rsid=rsid,
@@ -1237,8 +1237,8 @@ def dbsnp_page(rsid, project_name, genome):
             coverage=None,
             genes_in_region=None
         )
-    except Exception, e:
-        print 'Failed on rsid:', rsid, ';Error=', traceback.format_exc()
+    except Exception as e:
+        print('Failed on rsid:', rsid, ';Error=', traceback.format_exc())
         abort(404)
 
 

@@ -213,7 +213,7 @@ def get_awesomebar_result(db, project_name, genome, sample_name=None, query=None
 
     """
     query = query.strip()
-    print 'Query: %s' % query
+    print('Query: %s' % query)
 
     # Variant
     variant = get_variants_by_rsid(db, project_name, genome, query.lower())
