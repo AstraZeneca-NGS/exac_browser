@@ -42,8 +42,8 @@ Create a directory to hold your mongo database files:
     mkdir database
 
 In a separate tab, start the mongo database server:
-
-    mongod --dbpath database
+    
+    numactl --interleave=all mongod --dbpath database/
 
 This local server needs to be running at all times when you are working on the site.
 You could do this in the background if you want or set up some startup service,
@@ -81,10 +81,13 @@ That said, this is (and will remain) idempotent,
 so you can run it again at any time if you think something might be wrong - it will reload the database from scratch.
 You can also reload parts of the database using any of the following commands:
 
-    python manage.py load_variants_file
-    python manage.py load_dbsnp_file
-    python manage.py load_base_coverage
     python manage.py load_gene_models
+    python manage.py load_population_coverage
+    python manage.py load_variants_file
+    python manage.py load_base_coverage
+    python manage.py load_evaluate_capture_data
+    # python manage.py load_cnv_models
+    # python manage.py load_cnv_genes
 
 Then run:
 
@@ -100,13 +103,14 @@ Note that if you are revisiting the site after a break, make sure your virtualen
 
 You can run the development server with:
 
-    python exac.py
+    python exac.py <HOST_IP>
 
 And visit on your browser:
-
-    http://localhost:5000
-    http://localhost:5000/gene/ENSG00000237683
-    http://localhost:5000/variant/20-76735-A-T
+    
+    <HOST_IP>:5000
+    <HOST_IP>:5000/hg38/TS_UK_0031_SERD_EXOME
+    <HOST_IP>:5000/hg38/TS_UK_0031_SERD_EXOME/031-03
+    <HOST_IP>:5000/hg38/TS_UK_0031_SERD_EXOME/031-03/gene/EGFR
 
 
 For testing, you can open up an interactive shell with:

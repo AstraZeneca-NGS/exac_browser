@@ -8,7 +8,7 @@
     </script>
     <div class="container">
         <h1 id="home-title">ExAC Browser (Beta) | <a href="/{{ genome }}/{{ project_name }}/">{{ project_name }}</a> | {{ sample_name }}</h1>
-        <div class="row">
+        <div>
             <div class="col-md-12">
                 <div id="home-searchbox">
                     <form action="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome">
@@ -20,7 +20,6 @@
                         Examples - Gene: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=TP53">TP53</a>,
                         Transcript: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/transcript/NM_000546">NM_000546</a>,
                         Variant: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/17-7579311-C-A">17-7579311-C-A</a>,
-                        Multi-allelic variant: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/awesome?query=rs371409680">rs371409680</a>,
                         Region: <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/region/17-7579300-7579900">17:7579300-7579900</a>
                     </p>
                 </div>
@@ -30,7 +29,8 @@
         {% if sample_variants and sample_variants|length > 0 %}
             <br>
             <br>
-            <h3>Likely and known mutations</h3>
+            <h3>Mutations</h3>
+            <p>Showing known actionable mutations with allele frequency (AF) above 2.5 % and other likely significant mutations with AF above 7.5 %.</p>
             <div>
                 {% include 'sample_variants_table.html' %}
             </div>
