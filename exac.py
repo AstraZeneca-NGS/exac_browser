@@ -77,7 +77,7 @@ app.config.update(dict(
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
     SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
-    POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
+    POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
     BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*/'),
     BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '%s', 'chr*.txt.gz'),
     PROJECT_BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '*/'),
@@ -160,18 +160,19 @@ def load_coverage(coverage_files, i, n, coverage_db):
 def load_population_coverage():
     full_db = get_db()
     procs = []
-    full_db.population_coverage.drop()
-    print("Dropped db.population_coverage")
-    # load coverage first; variant info will depend on coverage
-    full_db.population_coverage.ensure_index('xpos')
+    for genome in ['hg19', 'hg38']:
+        full_db[genome].population_coverage.drop()
+        print("Dropped db.population_coverage for " + genome)
+        # load coverage first; variant info will depend on coverage
+        full_db[genome].population_coverage.ensure_index('xpos')
 
-    coverage_files = glob.glob(app.config['POPULATION_COVERAGE_FILES'])
-    num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
-    # random.shuffle(app.config['BASE_COVERAGE_FILES'])
-    for i in range(num_procs):
-        p = Process(target=load_coverage, args=(coverage_files, i, num_procs, full_db.population_coverage))
-        p.start()
-        procs.append(p)
+        coverage_files = glob.glob(app.config['POPULATION_COVERAGE_FILES'] % genome)
+        num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES'] / 2
+        # random.shuffle(app.config['BASE_COVERAGE_FILES'])
+        for i in range(num_procs):
+            p = Process(target=load_coverage, args=(coverage_files, i, num_procs, full_db[genome].population_coverage))
+            p.start()
+            procs.append(p)
     return procs
 
 
@@ -1038,7 +1039,7 @@ def get_gene_page_content(sample_name, project_name, project_genome, gene_id):
             coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
                                                                  project_name, project_genome, sample_name)
             population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
-                                                                            use_population_data=True)
+                                                                            use_population_data=True, genome=project_genome)
             cnvs_in_transcript = None
             cnvs_per_gene = None
             population_cnvs_in_transcript = None
@@ -1114,7 +1115,7 @@ def transcript_page(sample_name, project_name, project_genome, transcript_id):
             coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING,
                                                                  transcript['xstop'] + EXON_PADDING, project_name, project_genome, sample_name)
             population_coverage_stats = lookups.get_coverage_for_transcript(db, transcript['xstart'] - EXON_PADDING, transcript['xstop'] + EXON_PADDING,
-                                                                            use_population_data=True)
+                                                                            use_population_data=True, genome=project_genome)
 
             add_transcript_coordinate_to_variants(db, project_genome, variants_in_transcript, transcript_id)
 
@@ -1195,7 +1196,7 @@ def region_page(project_name, project_genome, sample_name, region_id):
             xstart = get_xpos(chrom, start)
             xstop = get_xpos(chrom, stop)
             coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, project_name, project_genome, sample_name)
-            population_coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, use_population_data=True)
+            population_coverage_array = lookups.get_coverage_for_bases(db, xstart, xstop, use_population_data=True, genome=project_genome)
             t = render_template(
                 'region.html',
                 sample_names=sample_names,

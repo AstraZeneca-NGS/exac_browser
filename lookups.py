@@ -116,7 +116,7 @@ def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=Non
     xstop can be None if just one base, but you'll still get back a list
     """
     if use_population_data:
-        coverage_data = db.population_coverage
+        coverage_data = db[genome].population_coverage
     elif sample_name:
         coverage_data = db[get_project_key(project_name, genome)][sample_name].base_coverage
     else:
