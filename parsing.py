@@ -51,8 +51,8 @@ def get_base_coverage_from_file(base_coverage_file, canonical_transcripts):
 
 
 def get_filtering_params(sites_vcf):
-    act_min_af = 0.025
-    min_af = 0.075
+    act_min_af = default_filt_params['act_min_af']
+    min_af = default_filt_params['min_af']
 
     for line in sites_vcf:
         try:

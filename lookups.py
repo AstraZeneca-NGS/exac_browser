@@ -111,8 +111,8 @@ def get_filtered_regions_in_project(db, project_name, genome):
 
 
 def get_project_filt_params(db, project_name, genome):
-    filt_params = db[get_project_key(project_name, genome)].filt_params.find()
-    return list(filt_params)[0]
+    filt_params = list(db[get_project_key(project_name, genome)].filt_params.find())
+    return default_filt_params if not filt_params else filt_params[0]
 
 
 def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=None, sample_name=None, use_population_data=False):

@@ -20,6 +20,11 @@ METRICS = [
     'VQSLOD'
 ]
 
+default_filt_params = {
+    'min_af': 0.075,
+    'act_min_af': 0.025
+}
+
 EXAC_FILES_DIRECTORY = '../exac_data/'
 KEY_GENES_FPATH = os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'az_key_genes.300.txt')
 

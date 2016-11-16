@@ -74,7 +74,7 @@
             </td>
             <td class="hidden-xs numbers_td">
                 <% if (variant.freq) { %>
-                    <%= (variant.freq * 100).toPrecision(3) %>%
+                    <%= Math.round((variant.freq * 100) * 100) / 100 %>%
                 <% } %>
             </td>
             <td class="hidden-xs numbers_td">
