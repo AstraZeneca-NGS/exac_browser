@@ -26,14 +26,17 @@
             </div>
         </div>
 
+        <br>
+        <br>
+        <h3>Mutations</h3>
         {% if sample_variants and sample_variants|length > 0 %}
-            <br>
-            <br>
-            <h3>Mutations</h3>
-            <p>Showing known actionable mutations with allele frequency (AF) above 2.5 % and other likely significant mutations with AF above 7.5 %.</p>
+            <p>Showing known actionable mutations with allele frequency (AF) above <span id="act_min_af_span">{{ act_min_af }}</span>% and other
+                likely significant mutations with AF above <span id="min_af_span">{{ min_af }}</span>%.</p>
             <div>
                 {% include 'sample_variants_table.html' %}
             </div>
+        {% else %}
+            <p>No significant mutations detected.</p>
         {% endif %}
 
     </div>

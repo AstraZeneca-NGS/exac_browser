@@ -50,6 +50,27 @@ def get_base_coverage_from_file(base_coverage_file, canonical_transcripts):
         yield d
 
 
+def get_filtering_params(sites_vcf):
+    act_min_af = 0.025
+    min_af = 0.075
+
+    for line in sites_vcf:
+        try:
+            line = line.strip('\n')
+            if line.startswith('##MinAF='):
+                min_af = float(line.split('=')[-1].strip())
+            if line.startswith('##MinActAF'):
+                act_min_af = float(line.split('=')[-1].strip())
+            if line.startswith('#'):
+                continue
+
+            return min_af, act_min_af
+        except Exception:
+            print("Error parsing vcf line: " + line)
+            traceback.print_exc()
+            return min_af, act_min_af
+
+
 def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
     """
     Parse exac sites VCF file and return iter of variant dicts
@@ -141,7 +162,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant['sample_depth'] = []
                 for idx, sample in enumerate(samples):
                     fs = samples_data[idx].split(':')
-                    if len(fs) < 6:
+                    if len(fs) < 6 or '1' not in fs[0]:  # Genotype
                         variant['sample_data'].append('')
                         variant['sample_af'].append(0)
                         variant['sample_depth'].append(0)
@@ -150,8 +171,10 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                     depth_col = samples_data_info.index('DP')
                     freq, depth = fs[freq_col], fs[depth_col]
                     if freq.replace('.', '', 1).isdigit():
-                        freq = str(float(freq) * 100) + '%'
-                    variant['sample_data'].append('AF:' + freq + ',DP:' + depth)
+                        str_freq = str(float(freq) * 100) + '%'
+                    else:
+                        str_freq = freq
+                    variant['sample_data'].append('AF:' + str_freq + ',DP:' + depth)
                     variant['sample_af'].append(freq)
                     variant['sample_depth'].append(depth)
 

@@ -2,6 +2,13 @@
 <span>
     <a class="btn btn-success hidden-xs" id="export_to_csv">Export table to CSV</a>
 </span>
+    <div id="slider_div" style="display: none; float: right;">
+        Hide "likely" with AF below
+        <input type="range" id="mut_af_slider" min="0" max="100" value="{{ min_af }}" style="vertical-align: middle; width: 150px; display: inline"
+               oninput="mut_af_textbox.value=this.value" />
+        <input type="text" id="mut_af_textbox" min="0" max="100" value="{{ min_af }}" maxlength="3" size="1"
+               oninput="mut_af_slider.value=this.value" style="text-align: right"/>&nbsp%
+    </div>
 <table id="variants_table" class="tablesorter">
     <thead>
         <tr>
@@ -66,7 +73,9 @@
                 <%= variant.datasets %>
             </td>
             <td class="hidden-xs numbers_td">
-                <%= variant.freq %>
+                <% if (variant.freq) { %>
+                    <%= (variant.freq * 100).toPrecision(3) %>%
+                <% } %>
             </td>
             <td class="hidden-xs numbers_td">
                 <%= variant.depth %>

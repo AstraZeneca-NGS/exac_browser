@@ -16,7 +16,8 @@
 
         update_variants();
         $('#confident_selectors_container').show();
-        $('.consequence_display_buttons, .indel_display_buttons, .confident_display_buttons').change(function () {
+        $('#slider_div').show();
+        $('.consequence_display_buttons, .indel_display_buttons, .confident_display_buttons, #mut_af_textbox, #mut_af_slider').change(function () {
             setTimeout(function() {
                 update_variants();
             }, 10);

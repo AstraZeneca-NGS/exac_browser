@@ -617,7 +617,10 @@ function update_variants() {
         .attr('id')
         .replace('confident_selection_', '')
         .replace('_button', '');
-    $('[major_consequence]').hide()
+    var filterbyAF = $('#mut_af_textbox')[0];
+    var minAF = filterbyAF ? $('#mut_af_textbox').val() / 100 : 0;
+
+    $('[major_consequence]').hide();
     $('[major_consequence]').map(function(row) {
         if (!filterState && $(this).attr('filter_status') !== 'PASS') {
             return
@@ -634,6 +637,8 @@ function update_variants() {
         if (confidentState === 'known' && $(this).attr('significance') !== 'known') {
             return
         }
+        if (minAF && $(this).attr('significance') == 'likely' && $(this).attr('freq') < minAF)
+            return;
         if (_.contains(categoryDefinitions[category], $(this).attr('major_consequence'))
         ) {
             $(this).show()

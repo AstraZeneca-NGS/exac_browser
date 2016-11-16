@@ -203,11 +203,11 @@ def load_base_coverage(project_name=None, genome=None):
         sample_procs = []
         for sample_dir in sample_dirs:
             path, sample_name = os.path.split(os.path.dirname(sample_dir))
-            db[sample_name].base_coverage.drop()
-            print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
-            db.samples.insert({'name': sample_name})
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
             if coverage_files:
+                db[sample_name].base_coverage.drop()
+                print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
+                db.samples.insert({'name': sample_name})
                 sample_procs = _load_one(sample_procs, len(sample_dirs), coverage_files, db[sample_name].base_coverage)
         [p.join() for p in sample_procs]
     return procs
@@ -256,6 +256,9 @@ def load_variants_file(project_name=None, genome=None):
         elif len(sites_vcfs) > 1:
             raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
 
+        min_af, act_min_af = get_filtering_params(gzip.open(sites_vcfs[0]))
+        db.filt_params.drop()
+        db.filt_params.insert({'min_af': min_af * 100, 'act_min_af': act_min_af * 100})
         canonical_transcripts = defaultdict()
         with gzip.open(app.config['CANONICAL_TRANSCRIPT_FILE'] % genome) as canonical_transcript_file:
             for gene, transcript in get_canonical_transcripts(canonical_transcript_file):
@@ -748,6 +751,7 @@ def sample_page(sample_name, project_name, project_genome):
     db = get_db()
     sample_names = lookups.get_project_samples(db, project_name, project_genome)
     variants = lookups.get_sample_variants(db, project_name, project_genome, sample_name, filter_unknown=True)
+    filt_params = lookups.get_project_filt_params(db, project_name, project_genome)
     t = render_template(
         'sample_page.html',
         project_name=project_name,
@@ -755,7 +759,9 @@ def sample_page(sample_name, project_name, project_genome):
         sample_names=sample_names,
         sample_name=sample_name if sample_name else '',
         sample_variants=variants,
-        sample_variants_json=JSONEncoder().encode(variants)
+        sample_variants_json=JSONEncoder().encode(variants),
+        min_af=filt_params['min_af'],
+        act_min_af=filt_params['act_min_af']
     )
     return t
 

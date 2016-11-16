@@ -90,15 +90,16 @@ def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=Fa
         variants = db[get_project_key(project_name, genome)].variants.find()
     variants = list(variants)
     if variants:
-        sample_index = variants[0]['sample_names'].index(sample_name)
-        for variant in variants:
-            if variant['sample_data'][sample_index] and variant['genes'] and \
-                    (variant['significance'] == 'likely' or variant['significance'] == 'known'):
-                if 'sample_af' in variant:
-                    variant['freq'] = variant['sample_af'][sample_index]
-                if 'sample_depth' in variant:
-                    variant['depth'] = variant['sample_depth'][sample_index]
-                sample_variants.append(variant)
+        sample_index = variants[0]['sample_names'].index(sample_name) if sample_name in variants[0]['sample_names'] else None
+        if sample_index is not None:
+            for variant in variants:
+                if variant['sample_data'][sample_index] and variant['genes'] and \
+                        (variant['significance'] == 'likely' or variant['significance'] == 'known'):
+                    if 'sample_af' in variant:
+                        variant['freq'] = variant['sample_af'][sample_index]
+                    if 'sample_depth' in variant:
+                        variant['depth'] = variant['sample_depth'][sample_index]
+                    sample_variants.append(variant)
     if sample_variants:
         add_consequence_to_variants(sample_variants)
     return sample_variants
@@ -107,6 +108,11 @@ def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=Fa
 def get_filtered_regions_in_project(db, project_name, genome):
     regions = db[get_project_key(project_name, genome)].filtered_regions.find()
     return list(regions)
+
+
+def get_project_filt_params(db, project_name, genome):
+    filt_params = db[get_project_key(project_name, genome)].filt_params.find()
+    return list(filt_params)[0]
 
 
 def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=None, sample_name=None, use_population_data=False):
