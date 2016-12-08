@@ -68,10 +68,6 @@
                 queryTokenizer: Bloodhound.tokenizers.whitespace,
                 limit: 1000,
                 remote: '/autocomplete_project/%QUERY',
-                prefetch: {
-                    url: '/autocomplete_project/',
-                    ttl: 10000
-                }
             });
 
             projects.initialize();
