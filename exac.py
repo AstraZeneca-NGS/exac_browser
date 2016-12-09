@@ -1,10 +1,13 @@
 #!/usr/bin/env python2
 
 import itertools
+import glob
+import sqlite3
+import time
 
-import json
-import os
+from collections import defaultdict, OrderedDict
 from os.path import basename
+from multiprocessing import Process
 
 import pymongo
 import pysam
@@ -15,27 +18,18 @@ from subprocess import check_output
 from parsing import *
 import logging
 import lookups
-import random
-import sys
 import socket
 from os import environ
 
 from utils import *
 
+from flask import Response
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, flash, jsonify, send_from_directory
 from flask.ext.compress import Compress
 from flask.ext.runner import Runner
 from flask_errormail import mail_on_500
 
-from flask import Response
-from collections import defaultdict, OrderedDict
 from werkzeug.contrib.cache import SimpleCache
-
-from multiprocessing import Process
-import glob
-import sqlite3
-import traceback
-import time
 
 logging.getLogger().addHandler(logging.StreamHandler())
 logging.getLogger().setLevel(logging.INFO)
@@ -67,7 +61,7 @@ app.config.update(dict(
     DB_NAME='exac', 
     DEBUG=True,
     SECRET_KEY='development key',
-    LOAD_DB_PARALLEL_PROCESSES = 8,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
+    LOAD_DB_PARALLEL_PROCESSES = 12,  # contigs assigned to threads, so good to make this a factor of 24 (eg. 2,3,4,6,8)
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
@@ -200,16 +194,16 @@ def load_base_coverage(project_name=None, genome=None):
         [p.join() for p in project_procs]
 
         sample_dirs = glob.glob(app.config['BASE_COVERAGE_DIRS'] % (genome, project_name))
-        sample_procs = []
         for sample_dir in sample_dirs:
             path, sample_name = os.path.split(os.path.dirname(sample_dir))
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
+            sample_procs = []
             if coverage_files:
                 db[sample_name].base_coverage.drop()
                 print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
                 db.samples.insert({'name': sample_name})
-                sample_procs = _load_one(sample_procs, len(sample_dirs), coverage_files, db[sample_name].base_coverage)
-        [p.join() for p in sample_procs]
+                sample_procs = _load_one(sample_procs, 1, coverage_files, db[sample_name].base_coverage)
+                [p.join() for p in sample_procs]
     return procs
 
     #print 'Done loading coverage. Took %s seconds' % int(time.time() - start_time)
