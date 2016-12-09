@@ -42,9 +42,11 @@
 
         {% if sample_names and sample_names|length > 0 %}
             <b>Samples:</b>
-            {% for sample in sample_names %}
-                <p><a href="/{{ genome }}/{{ project_name }}/{{ sample }}">{{ sample }}</a></p>
-            {% endfor %}
+            <div class="multicol_div">
+                {% for sample in sample_names %}
+                    <p><a href="/{{ genome }}/{{ project_name }}/{{ sample }}">{{ sample }}</a></p>
+                {% endfor %}
+            </div>
         {% endif %}
 
         {% if filtered_regions and filtered_regions|length > 0 %}
