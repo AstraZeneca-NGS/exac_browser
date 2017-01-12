@@ -17,7 +17,7 @@ POPS = {
 }
 
 
-def get_base_coverage_from_file(base_coverage_file, canonical_transcripts):
+def get_base_coverage_from_file(base_coverage_file, canonical_transcripts, sample_name=None):
     """
     Read a base coverage file and return iter of dicts that look like:
     {
@@ -69,15 +69,17 @@ def get_filtering_params(sites_vcf):
             print("Error parsing vcf line: " + line)
             traceback.print_exc()
             return min_af, act_min_af
+    return min_af, act_min_af
 
 
-def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
+def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts, sample_name):
     """
     Parse exac sites VCF file and return iter of variant dicts
     sites_vcf is a file (gzipped), not file path
     """
     ann_field_names = None
     samples = []
+    header = None
 
     for line in sites_vcf:
         try:
@@ -91,8 +93,11 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 gq_mids = map(float, line.split('Mids: ')[-1].strip('">').split('|'))
             if line.startswith('#CHROM'):
                 fs = line.split('\t')
-                samples = fs[fs.index('FORMAT') + 1:]
+                header = fs
+                samples = fs[header.index('FORMAT') + 1:]
             if line.startswith('#'):
+                continue
+            if line.split('\t')[header.index('FILTER')] == 'PROTEIN PROTEIN CONTACT':
                 continue
 
             # If we get here, it's a variant line
@@ -106,6 +111,9 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
             coding_annotations = [ann for ann in all_annotations if ann['Feature_ID'].startswith('NM')]
 
             alt_alleles = fields[4].split(',')
+            chrom = fields[0]
+            if chrom not in CHROMOSOMES:
+                continue
 
             # different variant for each alt allele
             for i, alt_allele in enumerate(alt_alleles):
@@ -118,7 +126,8 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 pos, ref, alt = get_minimal_representation(fields[1], fields[3], alt_allele)
 
                 variant = {}
-                variant['chrom'] = fields[0]
+                variant['sample_name'] = sample_name
+                variant['chrom'] = chrom
                 variant['pos'] = pos
                 variant['rsid'] = None
                 variant['cosmicid'] = None
@@ -142,9 +151,9 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant['filter'] = fields[6]
                 variant['vep_annotations'] = [dict((k.replace('.', '_'), v) for k, v in annotation.iteritems()) for annotation in annotations]
 
-                variant['allele_freq'] = float(info_field['AF'].split(',')[i])
-                variant['allele_count'] = int(info_field['AC'].split(',')[i])
-                variant['allele_num'] = int(info_field['AN'])
+                # variant['allele_freq'] = float(info_field['AF'].split(',')[i])
+                # variant['allele_count'] = int(info_field['AC'].split(',')[i])
+                # variant['allele_num'] = int(info_field['AN'])
 
                 if 'AC_MALE' in info_field:
                     variant['ac_male'] = info_field['AC_MALE']
@@ -157,15 +166,13 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant['sample_names'] = samples
                 samples_data = fields[-len(samples):]
                 samples_data_info = fields[-len(samples) - 1].split(':')
-                variant['sample_data'] = []
-                variant['sample_af'] = []
-                variant['sample_depth'] = []
                 for idx, sample in enumerate(samples):
+                    if sample_name and sample != sample_name:
+                        continue
                     fs = samples_data[idx].split(':')
-                    if len(fs) < 6 or '1' not in fs[0]:  # Genotype
-                        variant['sample_data'].append('')
-                        variant['sample_af'].append(0)
-                        variant['sample_depth'].append(0)
+                    if len(fs) < 6 or fs[0] == './.' or fs[0] == '0/0' or fs[0] == '0|0':  # Genotype
+                        variant['freq'] = 0
+                        variant['depth'] = 0
                         continue
                     freq_col = samples_data_info.index('AF')
                     depth_col = samples_data_info.index('DP')
@@ -174,9 +181,9 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                         str_freq = str(float(freq) * 100) + '%'
                     else:
                         str_freq = freq
-                    variant['sample_data'].append('AF:' + str_freq + ',DP:' + depth)
-                    variant['sample_af'].append(freq)
-                    variant['sample_depth'].append(depth)
+                    variant['freq'] = freq
+                    variant['depth'] = depth
+                    variant['sample_data'] = ['AF:' + str_freq + ',DP:' + depth]
 
                 if variant['chrom'] in ('X', 'Y'):
                     # variant['pop_hemis'] = dict([(POPS[x], int(info_field['Hemi_%s' % x].split(',')[i])) for x in POPS])
@@ -187,7 +194,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
                 variant['transcripts'] = set()
                 for vep_annotation, annotation in zip(variant['vep_annotations'], annotations):
                     gene = annotation['Gene_Name']
-                    transcript = annotation['Feature_ID'].split('.')[0]
+                    transcript = annotation['Feature_ID'].split(':')[0].split('.')[0]
                     if gene in canonical_transcripts and canonical_transcripts[gene] == transcript:
                         vep_annotation['CANONICAL'] = 'YES'
                     else:
@@ -224,7 +231,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts):
             break
 
 
-def get_regions(regions_file, canonical_transcripts):
+def get_regions(regions_file, canonical_transcripts, sample_name=None):
     header_fields = ['chrom', 'start', 'stop', 'size', 'gene', 'depth', 'samples', 'annotation']
     depth_threshold = 0
     key_genes = []
@@ -544,7 +551,7 @@ def get_dbnsfp_info(dbnsfp_file):
         yield gene_info
 
 
-def get_snp_from_dbsnp_file(dbsnp_file, canonical_transcripts):
+def get_snp_from_dbsnp_file(dbsnp_file, canonical_transcripts, sample_name=None):
     for line in dbsnp_file:
         fields = line.split('\t')
         if len(fields) < 3: continue

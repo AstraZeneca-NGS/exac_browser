@@ -26,7 +26,7 @@
             <th class="hidden-xs tooltip-table-header" data-tooltip="VQSR sensitivity filter & hard filters">Filter</th>
             <th class="tooltip-table-header" data-tooltip="Variant Effect Predictor (VEP) &#xa; annotation using Gencode 81.&#xa; Worst across all transcripts of this gene.">Annotation</th>
             <th class="tooltip-table-header" data-tooltip="Various flags (LoF from LOFTEE, MNP) &#xa; that may change annotation/confidence">Flags</th>
-            <th class="tooltip-table-header" data-tooltip="Alternate allele count in genotypes &#xa;(genotype quality >=20 & depth >=10)">Allele Count</th>
+            {# <th class="tooltip-table-header" data-tooltip="Alternate allele count in genotypes &#xa;(genotype quality >=20 & depth >=10)">Allele Count</th>
             <th class="hidden-xs tooltip-table-header" data-tooltip="Total number of called genotypes &#xa;(genotype quality >= 20 & depth >=10)">Allele Number</th>
             {% if chrom != 'Y' %}
                 <th class="hidden-xs tooltip-table-header" data-tooltip="Number of homozygous individuals for this alternate allele">Number of Homozygotes</th>
@@ -35,7 +35,7 @@
                 <th class="hidden-xs tooltip-table-header" data-tooltip="Number of hemizygous individuals for this alternate allele">Number of Hemizygotes</th>
             {% endif %}
             <th class="tooltip-table-header allele_frequency_column" data-tooltip="Frequency using only &#xa; high-quality genotypes &#xa; The graphic displays &#xa; allele frequency on a  &#xa; discrete scale: Singletons, &#xa; <1/10,000, <1/1000, <1%, &#xa; <5%, <50%, >50%">
-                Allele Frequency</th>
+                Allele Frequency</th> #}
             <% if (table_variants.length > 0) { %>
                 <% _.each(table_variants[0].sample_names, function(sample) { %>
                     <th class="hidden-xs"> <%= sample %></th>
@@ -100,7 +100,7 @@
                     <a href="/{{ genome }}/{{ project_name }}/{{ sample_name }}/variant/<%= variant.chrom %>-<%= variant.pos %>-<%= variant.ref %>-<%= variant.alt %>" target="_blank">
                         <span class="label label-<%= span_tag %> tooltip-table-header" data-tooltip="Variant annotation dubious: &#xa; see variant page for details"><%= flag %></span></a>
                 <% }); %></td>
-            <td> <%= variant.allele_count %> </td>
+            {# <td> <%= variant.allele_count %> </td>
             <td class='hidden-xs'> <%= variant.allele_num %> </td>
             {% if chrom != 'Y' %}
                 <td class="hidden-xs"> <%= variant.hom_count %> </td>
@@ -115,7 +115,7 @@
                     <%= variant.allele_freq %>
                 <% } %>
                 <div id="variant_af_box_<%= variant.variant_id %>" style="float: right;"></div>
-            </td>
+            </td> #}
             <% _.each(variant.sample_data, function(data) { %>
                 <td class="hidden-xs"> <%= data %></td>
             <% }); %>

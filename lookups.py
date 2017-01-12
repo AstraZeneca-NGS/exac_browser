@@ -1,4 +1,5 @@
-import re
+from collections import defaultdict
+
 from utils import *
 import itertools
 
@@ -39,19 +40,27 @@ def get_transcript(db, genome, transcript_id):
     return transcript
 
 
-def get_raw_variant(db, project_name, project_genome, xpos, ref, alt, get_id=False):
-    return db[get_project_key(project_name, project_genome)].variants.find_one({'xpos': xpos, 'ref': ref, 'alt': alt}, projection={'_id': get_id})
+def combine_variants(variants, sample_names):
+    combined_variant = variants[0]
+    combined_variant['sample_names'] = sample_names
+    sample_data = [None] * len(sample_names)
+    for variant in variants:
+        sample_index = combined_variant['sample_names'].index(variant['sample_name'])
+        sample_data[sample_index] = variant['sample_data'][0]
+
+    combined_variant['sample_data'] = sample_data
+    combined_variant['samples_count'] = sum([1 for x in sample_data if x is not None])
+    combined_variant['allele_freq'] = None
+    # if combined_variant['rsid'] == '.' or combined_variant['rsid'] is None:
+    #    rsid = db[project_genome].dbsnp.find_one({'xpos': xpos})
+    #    if rsid:
+    #        combined_variant['rsid'] = 'rs%s' % rsid['rsid']
+    return combined_variant
 
 
 def get_variant(db, project_name, project_genome, xpos, ref, alt):
-    variant = get_raw_variant(db, project_name, project_genome, xpos, ref, alt, False)
-    if variant is None or 'rsid' not in variant:
-        return variant
-    if variant['rsid'] == '.' or variant['rsid'] is None:
-        rsid = db[project_genome].dbsnp.find_one({'xpos': xpos})
-        if rsid:
-            variant['rsid'] = 'rs%s' % rsid['rsid']
-    return variant
+    return db[get_project_key(project_name, project_genome)].combined_variants.find_one({'xpos': xpos, 'ref': ref, 'alt': alt},
+                                                                                projection={'_id': False})
 
 
 def get_variants_by_rsid(db, project_name, genome, rsid):
@@ -85,21 +94,13 @@ def get_variants_from_dbsnp(db, project_name, genome, rsid):
 def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=False):
     sample_variants = []
     if filter_unknown:
-        variants = db[get_project_key(project_name, genome)].variants.find({'filter': 'PASS'})
+        variants = db[get_project_key(project_name, genome)].variants.find({'filter': 'PASS', 'sample_name': sample_name})
     else:
-        variants = db[get_project_key(project_name, genome)].variants.find()
+        variants = db[get_project_key(project_name, genome)].variants.find({'sample_name': sample_name})
     variants = list(variants)
-    if variants:
-        sample_index = variants[0]['sample_names'].index(sample_name) if sample_name in variants[0]['sample_names'] else None
-        if sample_index is not None:
-            for variant in variants:
-                if variant['sample_data'][sample_index] and variant['genes'] and \
-                        (variant['significance'] == 'likely' or variant['significance'] == 'known'):
-                    if 'sample_af' in variant:
-                        variant['freq'] = variant['sample_af'][sample_index]
-                    if 'sample_depth' in variant:
-                        variant['depth'] = variant['sample_depth'][sample_index]
-                    sample_variants.append(variant)
+    for variant in variants:
+        if variant['genes'] and (variant['significance'] == 'likely' or variant['significance'] == 'known'):
+            sample_variants.append(variant)
     if sample_variants:
         add_consequence_to_variants(sample_variants)
     return sample_variants
@@ -299,13 +300,10 @@ def get_variants_in_region(db, project_name, genome, chrom, start, stop, sample_
     xstart = get_xpos(chrom, start)
     xstop = get_xpos(chrom, stop)
     variants = []
-    all_variants = list(db[get_project_key(project_name, genome)].variants.find({
-        'xpos': {'$lte': xstop, '$gte': xstart}
-    }, projection={'_id': False}, limit=SEARCH_LIMIT))
+    search_parameters = {'xpos': {'$lte': xstop, '$gte': xstart}}
+    all_variants = find_variants_in_db(db, project_name, genome, search_parameters, sample_name)
     add_consequence_to_variants(all_variants)
     for variant in all_variants:
-        if sample_name and not check_variant_samples(variant, sample_name):
-            continue
         remove_extraneous_information(variant)
         variants.append(variant)
     return variants
@@ -353,13 +351,24 @@ def check_variant_samples(variant, sample_name):
     return True
 
 
+def find_variants_in_db(db, project_name, genome, search_parameters, sample_name=None):
+    if sample_name:
+        search_parameters['sample'] = sample_name
+        all_variants = db[get_project_key(project_name, genome)].variants.find(search_parameters, projection={'_id': False},
+                                                                               limit=SEARCH_LIMIT)
+    else:
+        all_variants = db[get_project_key(project_name, genome)].combined_variants.find(search_parameters, projection={'_id': False},
+                                                                               limit=SEARCH_LIMIT)
+    return all_variants
+
+
 def get_variants_in_gene(db, project_name, genome, gene_id, sample_name=None):
     """
     """
+    search_parameters = {'genes': gene_id}
+    all_variants = find_variants_in_db(db, project_name, genome, search_parameters, sample_name)
     variants = []
-    for variant in db[get_project_key(project_name, genome)].variants.find({'genes': gene_id}, projection={'_id': False}):
-        if sample_name and not check_variant_samples(variant, sample_name):
-            continue
+    for variant in all_variants:
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Gene_Name'] == gene_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)
@@ -376,10 +385,10 @@ def get_transcripts_in_gene(db, genome, gene_id):
 def get_variants_in_transcript(db, project_name, genome, transcript_id, sample_name=None):
     """
     """
+    search_parameters = {'transcripts': transcript_id}
+    all_variants = find_variants_in_db(db, project_name, genome, search_parameters, sample_name)
     variants = []
-    for variant in db[get_project_key(project_name, genome)].variants.find({'transcripts': transcript_id}, projection={'_id': False}):
-        if sample_name and not check_variant_samples(variant, sample_name):
-            continue
+    for variant in all_variants:
         variant['vep_annotations'] = [x for x in variant['vep_annotations'] if x['Feature_ID'] == transcript_id]
         add_consequence_to_variant(variant)
         remove_extraneous_information(variant)

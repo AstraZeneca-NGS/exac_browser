@@ -65,7 +65,8 @@ app.config.update(dict(
     FEATURES_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'all_features.bed.gz'),
     CANONICAL_TRANSCRIPT_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'canonical_transcripts.txt.gz'),
     OMIM_FILE=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'omim_info.txt.gz'),
-    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s.vcf.gz'),
+    SITES_VCF_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s'),
+    SITES_VCFS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'vardict', '%s', '*.vcf.gz'),
     POPULATION_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'population_data', 'coverage', 'Panel.*.coverage.txt.gz'),
     BASE_COVERAGE_DIRS=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '*/'),
     BASE_COVERAGE_FILES=os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, '%s', 'coverage', '%s', '%s', 'chr*.txt.gz'),
@@ -100,7 +101,8 @@ def connect_db():
     return client[app.config['DB_NAME']]
 
 
-def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, canonical_transcripts=None, proc_name=None):
+def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, proc_name=None, canonical_transcripts=None,
+                            sample_name=None):
     """
     Returns a generator of parsed record objects (as returned by record_parser) for the i'th out n subset of records
     across all the given tabix_file(s). The records are split by files and contigs within files, with 1/n of all contigs
@@ -124,7 +126,7 @@ def parse_tabix_file_subset(tabix_filenames, subset_i, subset_n, record_parser, 
     for tabix_file, contig in tabix_file_contig_subset:
         header_iterator = tabix_file.header
         records_iterator = tabix_file.fetch(contig, 0, 10**9, multiple_iterators=True)
-        for parsed_record in record_parser(itertools.chain(header_iterator, records_iterator), canonical_transcripts):
+        for parsed_record in record_parser(itertools.chain(header_iterator, records_iterator), canonical_transcripts, sample_name):
             counter += 1
             yield parsed_record
 
@@ -210,9 +212,9 @@ def load_base_coverage(project_name=None, genome=None):
 
 
 def load_variants_file(project_name=None, genome=None):
-    def load_variants(sites_file, i, n, db, canonical_transcripts):
+    def load_variants(sites_file, i, n, db, canonical_transcripts, sample_name=None):
         variants_generator = parse_tabix_file_subset([sites_file], i, n, get_variants_from_sites_vcf,
-             canonical_transcripts=canonical_transcripts, proc_name='Variants')
+             canonical_transcripts=canonical_transcripts, proc_name='Variants', sample_name=sample_name)
         try:
             db.variants.insert(variants_generator, w=0)
         except pymongo.errors.InvalidOperation:
@@ -224,8 +226,8 @@ def load_variants_file(project_name=None, genome=None):
     else:
         full_db.projects.drop()
         for genome in 'hg19', 'hg38':
-            sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, '*'))
-            project_names = [basename(vcf).split('.')[0] for vcf in sites_vcfs]
+            project_vcf_dirs = glob.glob(app.config['SITES_VCF_DIRS'] % (genome, '*'))
+            project_names = [basename(vcf_dir)[0] for vcf_dir in project_vcf_dirs]
             if project_names:
                 full_db.projects.insert({'name': project_name, 'genome': genome} for project_name in project_names)
         projects = get_projects(full_db)
@@ -233,24 +235,27 @@ def load_variants_file(project_name=None, genome=None):
     for project_name, genome in projects:
         db = full_db[get_project_key(project_name, genome)]
         db.variants.drop()
+        db.combined_variants.drop()
         print("Dropped db.variants for " + project_name)
 
         # grab variants from sites VCF
+        db.variants.ensure_index('sample_name')
         db.variants.ensure_index('xpos')
         db.variants.ensure_index('xstart')
         db.variants.ensure_index('xstop')
         db.variants.ensure_index('rsid')
         db.variants.ensure_index('genes')
         db.variants.ensure_index('transcripts')
+        db.combined_variants.ensure_index('xpos')
+        db.combined_variants.ensure_index('genes')
+        db.combined_variants.ensure_index('transcripts')
 
-        sites_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, project_name))
-        if len(sites_vcfs) == 0:
+        sample_vcfs = glob.glob(app.config['SITES_VCFS'] % (genome, project_name))
+        if len(sample_vcfs) == 0:
             print("No vcf file found for " + project_name)
             continue
-        elif len(sites_vcfs) > 1:
-            raise Exception("More than one sites vcf file found: %s" % sites_vcfs)
 
-        min_af, act_min_af = get_filtering_params(gzip.open(sites_vcfs[0]))
+        min_af, act_min_af = get_filtering_params(gzip.open(sample_vcfs[0]))
         db.filt_params.drop()
         db.filt_params.insert({'min_af': min_af * 100, 'act_min_af': act_min_af * 100})
         canonical_transcripts = defaultdict()
@@ -260,10 +265,26 @@ def load_variants_file(project_name=None, genome=None):
 
         num_procs = app.config['LOAD_DB_PARALLEL_PROCESSES']
         num_procs = max(1, num_procs / len(projects))
-        for i in range(num_procs):
-            p = Process(target=load_variants, args=(sites_vcfs[0], i, num_procs, db, canonical_transcripts))
-            p.start()
-            procs.append(p)
+        for sample_vcf in sample_vcfs:
+            procs = []
+            sample_name = basename(sample_vcf).split('-vardict')[0]
+            for i in range(num_procs):
+                p = Process(target=load_variants, args=(sample_vcf, i, num_procs, db, canonical_transcripts, sample_name))
+                p.start()
+                procs.append(p)
+            [p.join() for p in procs]
+
+        sample_names = lookups.get_project_samples(full_db, project_name, genome)
+        var_positions = set()
+        for v in db.variants.find():
+            var_positions.add(v['pos'])
+        for xpos in var_positions:
+            pos_variants = list(db.variants.find({'xpos': xpos}))
+            alt_values = set(variant['alt'] for variant in pos_variants)
+            for alt in alt_values:
+                variants = [variant for variant in pos_variants if variant['alt'] == alt]
+                combined_variant = lookups.combine_variants(variants, sample_names)
+                db.combined_variants.insert(combined_variant)
     return procs
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
 
@@ -635,7 +656,7 @@ def precalculate_metrics(project_name=None, genome=None):
                 metrics[metric].append(float(value))
             qual = float(variant['site_quality'])
             metrics['site_quality'].append(qual)
-            if variant['allele_num'] == 0: continue
+            '''if variant['allele_num'] == 0: continue
             if variant['allele_count'] == 1:
                 binned_metrics['singleton'].append(qual)
             elif variant['allele_count'] == 2:
@@ -644,7 +665,7 @@ def precalculate_metrics(project_name=None, genome=None):
                 for af in AF_BUCKETS:
                     if float(variant['allele_count'])/variant['allele_num'] < af:
                         binned_metrics[af].append(qual)
-                        break
+                        break'''
             progress += 1
             if not progress % 100000:
                 print('Read %s variants. Took %s seconds' % (progress, int(time.time() - start_time)))
@@ -856,6 +877,7 @@ def variant_page_project(project_name, project_genome, variant_str):
 def variant_page(project_name, project_genome, sample_name, variant_str):
     check_project_exists(project_name)
     db = get_db()
+    sample_names = lookups.get_project_samples(db, project_name, project_genome)
     try:
         chrom, pos, ref, alt = variant_str.split('-')
         pos = int(pos)
@@ -944,12 +966,10 @@ def variant_page(project_name, project_genome, sample_name, variant_str):
             "%s-" % chrom)
 
         read_group = None
-        sample_names = []
+        sample_names = [sample for idx, sample in enumerate(variant['sample_names'])
+                        if variant['sample_data'][idx]]
         if sample_name:
-            sample_names = [sample_name]
-        elif 'sample_names' in variant:
-            sample_names = [sample_name for idx, sample_name in enumerate(variant['sample_names'])
-                            if variant['sample_data'][idx]]
+            sample_names.insert(0, sample_names.pop(sample_names.index(sample_name)))
 
         if 'transcripts' in variant and variant['transcripts']:
             for transcript_id in variant['transcripts']:
