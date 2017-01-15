@@ -26,7 +26,7 @@ default_filt_params = {
 }
 
 EXAC_FILES_DIRECTORY = '../exac_data/'
-KEY_GENES_FPATH = os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'az_key_genes.300.txt')
+KEY_GENES_FPATH = os.path.join(os.path.dirname(__file__), EXAC_FILES_DIRECTORY, 'az_key_genes.823.txt')
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -349,15 +349,19 @@ def get_minimal_representation(pos, ref, alt):
         return pos, ref, alt
 
 
-def set_key_genes(records, key_genes_fpath):
-    key_genes = []
-    with open(key_genes_fpath) as f:
+def get_key_genes():
+    key_genes = set()
+    with open(KEY_GENES_FPATH) as f:
         for line in f:
-            key_genes.append(line.strip())
+            key_genes.add(line.strip())
+    return key_genes
+
+
+def set_key_genes(records):
+    key_genes = get_key_genes()
 
     for record in records:
-        gene_in_az300 = record['gene'] in key_genes
-        record['is_key_gene'] = gene_in_az300
+        record['is_key_gene'] = record['gene'] in key_genes
 
 
 def format_value(value, unit='', human_readable=True, is_html=False):

@@ -1,10 +1,8 @@
 """
 Utils for reading flat files that are loaded into database
 """
-import re
 import traceback
 from utils import *
-import copy
 
 POPS = {
     'AFR': 'African',
@@ -234,10 +232,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts, sample_name):
 def get_regions(regions_file, canonical_transcripts, sample_name=None):
     header_fields = ['chrom', 'start', 'stop', 'size', 'gene', 'depth', 'samples', 'annotation']
     depth_threshold = 0
-    key_genes = []
-    with open(KEY_GENES_FPATH) as f:
-        for line in f:
-            key_genes.append(line.strip())
+    key_genes = get_key_genes()
 
     for line in regions_file:
         if line.startswith('#'):
@@ -255,7 +250,7 @@ def get_regions(regions_file, canonical_transcripts, sample_name=None):
         if not gene or gene == '.' or gene == 'None' or 'not_a_gene' in gene:
             continue
 
-        gene_in_az300 = gene in key_genes
+        is_key_gene = gene in key_genes
         anno_line = fields[header_fields.index('annotation')] if len(fields) > header_fields.index('annotation') else ''
         if anno_line:
             percent_by_type = [kv.split(': ') for kv in anno_line.split(', ') if kv]
@@ -272,7 +267,7 @@ def get_regions(regions_file, canonical_transcripts, sample_name=None):
             'start_str': format_value(start, is_html=True, human_readable=True),
             'stop_str': format_value(stop, is_html=True, human_readable=True),
             'gene': gene,
-            'is_key_gene': gene_in_az300,
+            'is_key_gene': is_key_gene,
             'depth': fields[header_fields.index('depth')],
             'samples': fields[header_fields.index('samples')],
             'annotation': annotation,
@@ -526,8 +521,6 @@ def get_cnvs_per_gene(cnv_gene_file):
             'rank': rank,
             }
         yield cnv_gene
-
-
 
 
 def get_dbnsfp_info(dbnsfp_file):

@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 from utils import *
 import itertools
 
@@ -92,6 +90,7 @@ def get_variants_from_dbsnp(db, project_name, genome, rsid):
 
 
 def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=False):
+    key_genes = get_key_genes()
     sample_variants = []
     if filter_unknown:
         variants = db[get_project_key(project_name, genome)].variants.find({'filter': 'PASS', 'sample_name': sample_name})
@@ -99,7 +98,8 @@ def get_sample_variants(db, project_name, genome, sample_name, filter_unknown=Fa
         variants = db[get_project_key(project_name, genome)].variants.find({'sample_name': sample_name})
     variants = list(variants)
     for variant in variants:
-        if variant['genes'] and (variant['significance'] == 'likely' or variant['significance'] == 'known'):
+        if variant['genes'] and (variant['significance'] == 'likely' or variant['significance'] == 'known') and \
+                        any(gene in key_genes for gene in variant['genes']):
             sample_variants.append(variant)
     if sample_variants:
         add_consequence_to_variants(sample_variants)
