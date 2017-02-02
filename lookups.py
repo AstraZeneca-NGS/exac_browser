@@ -38,11 +38,11 @@ def get_transcript(db, genome, transcript_id):
     return transcript
 
 
-def combine_variants(variants, sample_names):
-    combined_variant = variants[0]
+def combine_variants(variant, alt_variants, sample_names):
+    combined_variant = variant
     combined_variant['sample_names'] = sample_names
     sample_data = [None] * len(sample_names)
-    for variant in variants:
+    for variant in alt_variants:
         sample_index = combined_variant['sample_names'].index(variant['sample_name'])
         sample_data[sample_index] = variant['sample_data'][0]
 
@@ -353,7 +353,7 @@ def check_variant_samples(variant, sample_name):
 
 def find_variants_in_db(db, project_name, genome, search_parameters, sample_name=None):
     if sample_name:
-        search_parameters['sample'] = sample_name
+        search_parameters['sample_name'] = sample_name
         all_variants = db[get_project_key(project_name, genome)].variants.find(search_parameters, projection={'_id': False},
                                                                                limit=SEARCH_LIMIT)
     else:

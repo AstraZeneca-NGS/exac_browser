@@ -276,13 +276,20 @@ def load_variants_file(project_name=None, genome=None):
         sample_names = lookups.get_project_samples(full_db, project_name, genome)
         var_positions = set()
         for v in db.variants.find():
-            var_positions.add(v['pos'])
+            var_positions.add(v['xpos'])
         for xpos in var_positions:
             pos_variants = list(db.variants.find({'xpos': xpos}))
             alt_values = set(variant['alt'] for variant in pos_variants)
             for alt in alt_values:
-                variants = [variant for variant in pos_variants if variant['alt'] == alt]
-                combined_variant = lookups.combine_variants(variants, sample_names)
+                alt_variants = [variant for variant in pos_variants if variant['alt'] == alt]
+                variant = {
+                    'chrom': alt_variants[0]['chrom'],
+                    'pos': alt_variants[0]['pos'],
+                    'xpos': xpos,
+                    'ref': alt_variants[0]['ref'],
+                    'alt': alt
+                }
+                combined_variant = lookups.combine_variants(variant, alt_variants, sample_names)
                 db.combined_variants.insert(combined_variant)
     return procs
     #print 'Done loading variants. Took %s seconds' % int(time.time() - start_time)
