@@ -325,7 +325,9 @@ function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container,
             if (d.major_consequence == 'missense_variant' || d.major_consequence == 'synonymous_variant') {
                 output += '<br/>' + d.HGVSp;
             }
-            output += '<br/>Frequency: ' + d.allele_freq.toPrecision(3);
+            if (d.allele_freq) {
+                output += '<br/>Frequency: ' + d.allele_freq * 100 + '%';
+            }
             return output;
         } else {
             return 'None';
@@ -386,7 +388,7 @@ function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container,
         .attr("rx", 2)
         .attr("ry", function(d, i) {
             if (!d.allele_freq) {
-                return 0;
+                return 3;
             } else {
                 return variant_size_scale(d.allele_freq);
             }

@@ -169,7 +169,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts, sample_name):
                         continue
                     fs = samples_data[idx].split(':')
                     if len(fs) < 6 or fs[0] == './.' or fs[0] == '0/0' or fs[0] == '0|0':  # Genotype
-                        variant['freq'] = 0
+                        variant['allele_freq'] = 0
                         variant['depth'] = 0
                         continue
                     freq_col = samples_data_info.index('AF')
@@ -179,7 +179,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts, sample_name):
                         str_freq = str(float(freq) * 100) + '%'
                     else:
                         str_freq = freq
-                    variant['freq'] = freq
+                    variant['allele_freq'] = freq
                     variant['depth'] = depth
                     variant['sample_data'] = ['AF:' + str_freq + ',DP:' + depth]
 

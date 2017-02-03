@@ -29,7 +29,7 @@
     <% _.each(sample_variants, function(variant) { %>
         <tr class="table_variant" id="variant_<%= variant.variant_id %>"
             gene="<%= variant.gene %>"
-            freq="<%= variant.freq %>"
+            allele_freq="<%= variant.allele_freq %>"
             depth="<%= variant.depth %>"
             category="<%= variant.category %>"
             filter_status="<%= variant.filter %>"
@@ -73,8 +73,8 @@
                 <%= variant.datasets %>
             </td>
             <td class="hidden-xs numbers_td">
-                <% if (variant.freq) { %>
-                    <%= Math.round((variant.freq * 100) * 100) / 100 %>%
+                <% if (variant.allele_freq) { %>
+                    <%= Math.round((variant.allele_freq * 100) * 100) / 100 %>%
                 <% } %>
             </td>
             <td class="hidden-xs numbers_td">

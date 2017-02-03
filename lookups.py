@@ -334,14 +334,10 @@ def get_metrics(db, project_name, genome, variant):
 def remove_extraneous_information(variant):
     # del variant['genotype_depths']
     # del variant['genotype_qualities']
-    del variant['transcripts']
-    del variant['genes']
-    del variant['orig_alt_alleles']
-    #del variant['xpos']
-    del variant['xstart']
-    del variant['xstop']
-    del variant['site_quality']
-    del variant['vep_annotations']
+    # del variant['xpos']
+    entries_to_remove = ('transcripts', 'genes', 'orig_alt_alleles', 'xstart', 'xstop', 'site_quality', 'vep_annotations')
+    for entry in entries_to_remove:
+        variant.pop(entry, None)
 
 
 def check_variant_samples(variant, sample_name):

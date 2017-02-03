@@ -30,9 +30,11 @@
         </div>
         <span id="gene_plot_axis_container_{{ plot_id }}" class="hidden-xs" style="width:50px; display: inline-block;"></span>
         <span id="gene_plot_container_{{ plot_id }}" style="overflow-x:scroll; display: inline-block;"></span>
-        <a class="btn btn-success" id="coverage_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_coverage">Save coverage plot</a>
-        <a class="btn btn-success" id="exon_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_exon">Save exon image</a>
-        <a class="btn btn-success" id="cnv_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_cnv">Save CNV image</a>
+        <div>
+            <a class="btn btn-success" id="coverage_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_coverage">Save coverage plot</a>
+            <a class="btn btn-success" id="exon_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_exon">Save exon image</a>
+            <a class="btn btn-success" id="cnv_plot_download_{{ plot_id }}" target="_blank" download="{{ plot_id }}_cnv">Save CNV image</a>
+        </div>
     </div>
 </div>
 <style>

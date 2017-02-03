@@ -628,6 +628,7 @@ function update_variants() {
         .replace('_button', '');
     var filterbyAF = $('#mut_af_textbox')[0];
     var minAF = filterbyAF ? $('#mut_af_textbox').val() / 100 : 0;
+    var minActAF = filterbyAF ? parseFloat($('#act_min_af_span').html()) / 100 : 0;
 
     $('[major_consequence]').hide();
     $('[major_consequence]').map(function(row) {
@@ -646,7 +647,9 @@ function update_variants() {
         if (confidentState === 'known' && $(this).attr('significance') !== 'known') {
             return
         }
-        if (minAF && $(this).attr('significance') == 'likely' && $(this).attr('freq') < minAF)
+        if (minAF && $(this).attr('significance') == 'likely' && $(this).attr('allele_freq') < minAF)
+            return;
+        if (minActAF && $(this).attr('significance') == 'known' && $(this).attr('allele_freq') < minActAF && $(this).attr('allele_freq') < minAF)
             return;
         if (_.contains(categoryDefinitions[category], $(this).attr('major_consequence'))
         ) {
@@ -722,7 +725,7 @@ function change_track_chart_variant_size(variant_data, change_to, container) {
         .duration(500)
         .attr("ry", function(d, i) {
             if (!d.allele_freq) {
-                return 0;
+                return 3;
             } else {
                 return variant_size_scale(d.allele_freq);
             }

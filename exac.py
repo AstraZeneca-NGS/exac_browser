@@ -287,7 +287,12 @@ def load_variants_file(project_name=None, genome=None):
                     'pos': alt_variants[0]['pos'],
                     'xpos': xpos,
                     'ref': alt_variants[0]['ref'],
-                    'alt': alt
+                    'alt': alt,
+                    'variant_id': alt_variants[0]['variant_id'],
+                    'genes': alt_variants[0]['genes'],
+                    'transcripts': alt_variants[0]['transcripts'],
+                    'vep_annotations': alt_variants[0]['vep_annotations'],
+                    'filter': 'PASS' if any(var['filter'] == 'PASS' for var in alt_variants) else 'REJECT'
                 }
                 combined_variant = lookups.combine_variants(variant, alt_variants, sample_names)
                 db.combined_variants.insert(combined_variant)
@@ -1406,7 +1411,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # adds Flask command line options for setting host, port, etc.
-    app.run(host=host_ip, threaded=True, debug=True, extra_files='autocomplete_projects.txt')
+    app.run(host=host_ip, port=5000, threaded=True, debug=True, extra_files='autocomplete_projects.txt')
     # runner = Runner(app)
     # runner.run()
     # manager = Manager(app)
