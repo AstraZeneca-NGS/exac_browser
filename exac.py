@@ -195,15 +195,15 @@ def load_base_coverage(project_name=None, genome=None):
         [p.join() for p in project_procs]
 
         sample_dirs = glob.glob(app.config['BASE_COVERAGE_DIRS'] % (genome, project_name))
-        for sample_dir in sample_dirs:
+        for idx, sample_dir in enumerate(sample_dirs):
             path, sample_name = os.path.split(os.path.dirname(sample_dir))
             coverage_files = glob.glob(app.config['BASE_COVERAGE_FILES'] % (genome, project_name, sample_name))
             sample_procs = []
             if coverage_files:
-                db[sample_name].base_coverage.drop()
+                db[idx].base_coverage.drop()
                 print("Dropped db.base_coverage for " + sample_name + " in " + project_name)
-                db.samples.insert({'name': sample_name})
-                sample_procs = _load_one(sample_procs, 1, coverage_files, db[sample_name].base_coverage)
+                db.samples.insert({'name': sample_name, 'idx': idx})
+                sample_procs = _load_one(sample_procs, 1, coverage_files, db[idx].base_coverage)
                 [p.join() for p in sample_procs]
     return procs
 
@@ -665,8 +665,9 @@ def precalculate_metrics(project_name=None, genome=None):
         for variant in db.variants.find(projection=['quality_metrics', 'site_quality', 'allele_num', 'allele_count']):
             for metric, value in variant['quality_metrics'].iteritems():
                 metrics[metric].append(float(value))
-            qual = float(variant['site_quality'])
-            metrics['site_quality'].append(qual)
+            if 'site_quality' in variant:
+                qual = float(variant['site_quality'])
+                metrics['site_quality'].append(qual)
             '''if variant['allele_num'] == 0: continue
             if variant['allele_count'] == 1:
                 binned_metrics['singleton'].append(qual)

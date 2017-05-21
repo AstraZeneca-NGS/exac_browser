@@ -4,19 +4,6 @@ import itertools
 SEARCH_LIMIT = 10000
 
 
-def get_project_by_project_name(db, project_name):
-    projects = list(db.projects.find({'name': project_name}))
-    return projects[0] if projects else None
-
-
-def get_project_samples(db, project_name, genome):
-    samples = list(db[get_project_key(project_name, genome)].samples.find())
-    if not samples:
-        return None
-    sample_names = sorted([sample['name'] for sample in samples], key=natural_key)
-    return sample_names
-
-
 def get_gene(db, genome, gene_id):
     return db[genome].genes.find_one({'gene_id': gene_id}, projection={'_id': False})
 
@@ -125,7 +112,7 @@ def get_coverage_for_bases(db, xstart, xstop=None, project_name=None, genome=Non
     if use_population_data:
         coverage_data = db[genome].population_coverage
     elif sample_name:
-        coverage_data = db[get_project_key(project_name, genome)][sample_name].base_coverage
+        coverage_data = db[get_project_key(project_name, genome)][get_sample_key(db, sample_name, project_name, genome)].base_coverage
     else:
         coverage_data = db[get_project_key(project_name, genome)].base_coverage
     if xstop is None:

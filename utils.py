@@ -56,6 +56,27 @@ def get_project_key(project_name, genome):
     return project_name + '_' + genome
 
 
+def get_project_by_project_name(db, project_name):
+    projects = list(db.projects.find({'name': project_name}))
+    return projects[0] if projects else None
+
+
+def get_project_samples(db, project_name, genome):
+    samples = list(db[get_project_key(project_name, genome)].samples.find())
+    if not samples:
+        return None
+    sample_names = sorted([sample['name'] for sample in samples], key=natural_key)
+    return sample_names
+
+
+def get_sample_key(db, sample_name, project_name, genome):
+    samples = list(db[get_project_key(project_name, genome)].samples.find())
+    for sample in samples:
+        if sample['name'] == sample_name and 'idx' in sample:
+            return sample['idx']
+    return sample_name
+
+
 def add_transcript_coordinate_to_variants(db, genome, variant_list, transcript_id):
     """
     Each variant has a 'xpos' and 'pos' positional attributes.
