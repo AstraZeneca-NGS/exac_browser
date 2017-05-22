@@ -2,6 +2,8 @@
 {% block body %}
     <!-- Render context vars in JS here -->
     <script type="text/javascript">
+        window.genome = {{ genome_json|safe }};
+        window.project_name = {{ project_name_json|safe }};
         window.transcript = {{ transcript_json|safe }};
         window.table_variants = {{ variants_in_transcript_json|safe }};
         window.variants_in_transcript = window.table_variants;

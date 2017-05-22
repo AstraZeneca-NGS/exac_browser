@@ -179,7 +179,7 @@ var make_cnvs_svg = function(_cnvs, _transcript, scale_type, skip_utrs, containe
 }
 
 
-function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container, cnv_svg) {
+function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container, cnv_svg, genome, project_name) {
     var coords = 'pos_coding_noutr';
     var coding_coordinate_params = get_coding_coordinate_params(_transcript, true);
     var chart_width = gene_chart_width;
@@ -341,7 +341,7 @@ function gene_chart(data, new_data, variant_data, _transcript, _cnvs, container,
         .enter()
         .append("a")
         .attr('class', 'track_variant_link')
-        .attr("xlink:href", function(d, i) { return "/{{ genome }}/{{ project_name }}/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
+        .attr("xlink:href", function(d, i) { return "/" + genome + "/" + project_name + "/variant/" + d.chrom + "-" + d.pos + "-" + d.ref + "-" + d.alt; })
         .attr("data-toggle", "tooltip")
         .attr('filter_status', function(d) {
             return d.filter;

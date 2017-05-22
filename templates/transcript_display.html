@@ -62,6 +62,8 @@ $(document).ready(function() {
     var include_utr_checkbox = '#include_utrs_checkbox_' + plot_id;
     var cnv_svg = 'cnv_svg_' + plot_id;
     var transcript = window.transcript;
+    var genome = window.genome;
+    var project_name = window.project_name;
     var coverage_stats = !population_plot ? window.coverage_stats : window.population_coverage_stats;
     var variants_in_transcript = !population_plot ? window.variants_in_transcript : [];
     var cnvs = !population_plot ? window.cnvs : window.population_cnvs;
@@ -92,7 +94,7 @@ $(document).ready(function() {
     var new_data_skip_utr = create_new_data(coverage_stats, 'pos_coding_noutr');
     if (coverage_stats != null) {
         gene_chart(coverage_stats, new_data_skip_utr, variants_in_transcript, transcript, cnvs, gene_plot_container,
-                cnv_svg);
+                cnv_svg, genome, project_name);
         if (variants_in_transcript.length) {
             update_variants();
         }
