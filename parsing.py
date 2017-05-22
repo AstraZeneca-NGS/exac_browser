@@ -106,7 +106,7 @@ def get_variants_from_sites_vcf(sites_vcf, canonical_transcripts, sample_name):
             info_field = dict([(x.split('=', 1)) if '=' in x else (x, x) for x in re.split(';(?=\w)', fields[7])])
             annotation_array = info_field['ANN'].split(',') if 'ANN' in info_field else []
             all_annotations = [dict(zip(ann_field_names, x.split('|'))) for x in annotation_array if len(ann_field_names) == len(x.split('|'))]
-            coding_annotations = [ann for ann in all_annotations if ann['Feature_ID'].startswith('NM')]
+            coding_annotations = [ann for ann in all_annotations if ann['Feature_ID'].startswith('NM') or ann['Feature_ID'].startswith('ENST')]
 
             alt_alleles = fields[4].split(',')
             chrom = fields[0]
@@ -339,7 +339,7 @@ def get_genes_from_features(features_file):
         fields = line.strip('\n').split('\t')
         feature_type = fields[6]
 
-        if feature_type != 'Transcript':
+        if feature_type.lower() != 'transcript':
             continue
 
         chrom = fields[0]
@@ -377,7 +377,7 @@ def get_transcripts_from_features(features_file):
         fields = line.strip('\n').split('\t')
         feature_type = fields[6]
 
-        if feature_type != 'Transcript':
+        if feature_type.lower() != 'transcript':
             continue
 
         chrom = fields[0]
@@ -415,7 +415,7 @@ def get_exons_from_features(features_file):
         if fields[7] == 'UTR':
             feature_type = 'UTR'
 
-        if feature_type not in ['Exon', 'CDS', 'UTR']:
+        if feature_type.lower() not in ['exon', 'cds', 'utr']:
             continue
 
         chrom = fields[0]

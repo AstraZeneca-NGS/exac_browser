@@ -385,4 +385,6 @@ def get_exons_in_transcript(db, genome, transcript_id):
     #      db.exons.find({'transcript_id': transcript_id}, projection={'_id': False})
     #      if x['feature_type'] != 'exon'],
     #     key=lambda k: k['start'])
-    return sorted(list(db[genome].exons.find({'transcript_id': transcript_id, 'feature_type': { "$in": ['CDS', 'UTR', 'Exon'] }}, projection={'_id': False})), key=lambda k: k['start'])
+    return sorted(list(db[genome].exons.find({'transcript_id': transcript_id,
+                                              'feature_type': { "$in": ['CDS', 'UTR', 'Exon', 'exon'] }},
+                                              projection={'_id': False})), key=lambda k: k['start'])
